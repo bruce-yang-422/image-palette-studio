@@ -10,6 +10,17 @@
 * **純客戶端離線運作 (Zero Server Cost)**：所有像素讀取、色差運算與畫布渲染皆於瀏覽器端完成，保護照片隱私且享有毫秒級響應速度。
 * **單一代碼庫跨平台 (Single Codebase PWA)**：採用靜態 Web 技術建置，支援桌機（PC / Mac）瀏覽器即開即用，以及 Android 手機透過 PWA 離線安裝至桌面，免去維護雙端原生專案的維護成本。
 
+### 2.1 重點硬性要求：僅使用 GitHub Pages 即可完成部署
+
+**GitHub Pages 必須足以部署並執行本專案全部核心功能。此為強制架構與驗收條件，優先於第 8 節的建議技術選型。**
+
+* **純靜態部署**：發布內容必須為 HTML、CSS、JavaScript、圖片及其他靜態資源。允許在本機或 GitHub Actions 執行建置，但建置產物發布後，不得需要持續運行的伺服器程序。
+* **不依賴後端**：圖片載入與處理、色彩提取、配色生成、畫布合成、色盲預覽及檔案匯出，必須在瀏覽器端完成；不得以自架 API、SSR、Serverless Functions、外部資料庫或付費服務作為核心功能的必要條件，也不得要求使用者提供 API Key。
+* **支援儲存庫子路徑**：必須可部署於 GitHub Pages 的 `/image-palette-studio/` 路徑。資源引用、頁面連結，以及未來的 PWA manifest、Service Worker 路徑與作用範圍，都必須配合部署基底路徑，不得假設網站位於網域根目錄。
+* **部署流程可重現**：文件須提供完整發布步驟；若使用建置工具，須提供對應的 GitHub Actions 建置與 Pages 發布設定。完成 GitHub Pages 設定後，不得要求另行部署其他平台或服務。
+* **外部資源與離線能力**：外部字型或其他非必要資源載入失敗時，核心功能仍須可用。PWA 離線功能也必須在相同靜態部署下實現，必要資源須可由本站提供與快取。
+* **部署驗收**：以實際 GitHub Pages 網址驗證頁面與資源載入、圖片上傳／拖放、配色生成、畫布預覽及各項匯出；已實作的其他核心功能亦須逐項確認。不得只以本機可執行或原始碼已上傳 GitHub 視為部署完成。
+
 ---
 
 ## 3. 雙軌工作模式 (Dual Workflow Modes)
@@ -174,3 +185,117 @@ Base Palette ───────┼─ Harmony
 * **圖像提取庫**：`colorthief`（輕量中位數切割演算法）。
 * **二進位生成庫**：`ase-utils`（匯出 `.ase` 專用）。
 * **PWA 與部署**：`vite-plugin-pwa` + GitHub Pages（搭配 GitHub Actions 自動建置發布）。
+
+> [!NOTE]
+> ## 實作完成度（2026-09-17）
+>
+> 比對基準：710785f。以下依「已完成、部分完成、未完成、替代實作」分組，主文維持原始版本。3A／3B 分別對應圖片提取／憑空生成模式。
+>
+> 「已完成」指已有程式與操作流程；「部分完成」表示仍有功能缺口、參數差異或串接問題；「未完成」表示尚無對應實作；「替代實作」表示改採其他技術。
+>
+> 以靜態程式碼比對為主，另以 Node 檢查調和色數、同名 JSON 色票鍵與畫布尺寸。瀏覽器互動、實機觸控、外部軟體匯入及離線安裝尚未驗收。
+>
+> 風格參數中的 H 為角度，S／L 為 HSL 百分比，不等同 Oklch Chroma。
+>
+> ### 已完成
+>
+> | 原章節 | 項目 | 實作現況與缺口 |
+> | :--- | :--- | :--- |
+> | §2 | 完全零 AI / 零神經網路模型 | 已使用本機色彩公式、K-means 與隨機生成，無 AI 模型或推論服務。隨機流程含 Math.random，並非相同輸入必然得到相同輸出。依據：js/core/、js/utils/。 |
+> | §3A | 動態色槽數量 | UI 與提取流程支援 3／4／5／6／8 色；調和模式在 6／8 色的品質限制另見 §4.1。依據：index.html、app.js 的 swatch-count 事件。 |
+> | §3A | K-means 候選色彩池 | extractFromElement 呼叫 ColorMath.kMeans，採 K-means++ 初始化；先縮至最長邊 300px 再取樣，輸出 k 個中心色。依據：extraction.js、color-math.js。 |
+> | §4.1 | 三角色 (Triadic) | triadic 依 0°／120°／240° 循環生成各指定數量，並調整明度與飽和度。依據：harmony.js；已用 Node 檢查 3／4／5／6／8 色數量。 |
+> | §5.1 | 比例定義說明 | 圖片模式中固定比例作用於完整畫布，再分配照片與底部色票；original 保留照片比例並向下外加色票。crop 仍會為照片區裁切取景。依據：computeSize、render。 |
+> | §5.1 | 版面自適應 | 已有 crop／letterbox 切換與照片區繪製，另支援滑鼠／觸控拖曳調整裁切位置。依據：canvas-renderer.js、app.js 的 initCropDrag。 |
+> | §5.2 | 底部通欄 (Bottom Strip) | render 將照片畫於上方、等寬色塊畫於下方，預設色票高度佔完整卡片 25%。依據：canvas-renderer.js。 |
+> | §6.1 | 色盲模擬器 (Color Blindness Filter) | 四種 SVG feColorMatrix 濾鏡與選單已連動，套用至整個 app-workspace。此標記指預覽功能，不代表模擬精度經驗證。依據：index.html、colorblind-sim.js。 |
+> | §6.2 | 專業色票檔 | 已有 ASEF 標頭、RGB 浮點色值、UTF-16 名稱的二進位產生及下載入口；另有 ACO。此為程式實作完成，Adobe 軟體匯入相容性仍待實測。依據：export-engine.js、export-ui.js。 |
+> | §6.2 | 漸層工具 | 已有線性／放射漸層切換、依色票均分 stops、預覽及 CSS 複製。依據：gradient-gen.js。 |
+> | §7.1 | 暗色系 (Dark) | 已有暗色介面及 CSS 色彩變數，為目前固定預設；主題選擇與偏好保存不包含於此完成項。 |
+>
+> ### 部分完成
+>
+> | 原章節 | 項目 | 實作現況與缺口 |
+> | :--- | :--- | :--- |
+> | §1 | 專案概述 | 已有純前端雙模式色票工作站與 Canvas 合成；尚未完成 PWA。原始碼已上傳 GitHub，但版本庫未有 LICENSE，開源授權條款尚未明訂。 |
+> | §2 | 純客戶端離線運作 (Zero Server Cost) | 像素讀取、運算與渲染皆在瀏覽器端；未有 Service Worker／離線快取，Google Fonts 仍需連線，毫秒級效能未量測。依據：extraction.js、canvas-renderer.js、index.html。 |
+> | §2 | 單一代碼庫跨平台 (Single Codebase PWA) | 已有共用靜態網頁、響應式 CSS 與部分觸控事件；缺 manifest、Service Worker 與 PWA 安裝流程，跨裝置實測待補。 |
+> | §3A | 多渠道輸入 | 已完成檔案選取、拖放、格式與 20MB 驗證；未找到 paste／clipboardData 接收流程。依據：upload.js。README 的貼上支援描述超前於實作。 |
+> | §3A | 智慧色彩過濾 (Diversity Filtering) | 已有聚類與近似距離去重；感知色差與亮暗／主色角色選擇尚未完成。 |
+> | §3A | 感知色差去重 | 已有距離閾值去重；deltaE76 實際計算 RGB 歐氏距離，並非 Lab 的 CIE76 ΔE。去重不足時以隨機色補齊，未保證補色源自照片。依據：color-math.js、extraction.js。 |
+> | §3A | 手動選色工具 (Manual Picker Tools) | 已有點選／框選取色、HEX 提示與觸控操作；尚未完成圖片錨點工作流。 |
+> | §3B | 全域快速隨機 (Spacebar Roll) | 已有模式切換生成、Space／R 與一般按鈕；缺開站即生成與手機浮動按鈕。 |
+> | §3B | 開站自動生成 | 切換至 scratch 時會生成，且套用風格；初始為 image／chaos，DOMContentLoaded 不產生色票，並非開站即產出調和配色。依據：app.js。 |
+> | §3B | Space 快捷鍵與手機浮動按鈕 | Space／R 與 btn-regenerate 呼叫 generatePalette(true) 保留鎖定色；沒有手機專用浮動按鈕，btn-scratch-regen 則呼叫預設不保留鎖定的流程。 |
+> | §3B | 自由錨定鎖定 (Lock System) | 已有多槽鎖定；部分生成入口會清除鎖定，行為尚未一致。 |
+> | §3B | 多色槽鎖定與重新生成 | Space／R 與主重新生成按鈕可保留鎖定色；「立即生成」、切換演算法／色數等呼叫 generatePalette()，會重置鎖定。6／8 色互補與分裂互補也可能遺失後段鎖定色，因先對最多 5 色結果合併再隨機補齊。依據：app.js。 |
+> | §3B | 手動指定主色 (Manual Input) | 已有 HEX、色盤與種子色調和；缺 RGB／HSL 輸入及完整保留指定色。 |
+> | §3B | HEX／RGB／HSL 與色盤輸入 | 種子色支援 HEX 輸入與 input[type=color]；未有 RGB／HSL 文字解析與輸入欄。依據：app.js 的 buildAnchorItem。 |
+> | §3B | 以主色補齊調和色票 | Harmony 以第一個種子色或鎖定色為基準生成，並置入多個種子色；風格投影可能改變未鎖定種子，修改種子時的 generatePalette() 也會重置鎖定。依據：app.js、harmony.js。 |
+> | §4 | 生成主管線 | 已串接三種生成來源、條件式風格投影、鎖定色合併與輸出。圖片 raw 模式跳過投影；缺合併後統一安全夾取，補齊色數發生於投影／合併之後，可能不符合風格、調和或原鎖定色。依據：app.js 的 generatePalette、updateAllUI。 |
+> | §4.1 | 類比色 (Analogous) | 已有 analogous，採 28° 步距；多色時累積至 ±56°、±84° 等，未將所有色限制於基準色 ±20°～40°。依據：harmony.js。 |
+> | §4.1 | 互補色 (Complementary) | 已有 180° 互補色；3 色時僅輸出基準色明暗變體，6／8 色最多回傳 5 色，主流程以隨機色補足。依據：harmony.js 的 complementary；已用 Node 檢查回傳數量。 |
+> | §4.1 | 分裂互補 (Split-Complementary) | 已有 +150°／+210°，第 4／5 色另採 +120°／+240°；6／8 色最多回傳 5 色，再由主流程隨機補足。依據：splitComplementary；已用 Node 檢查。 |
+> | §4.2 | 莫蘭迪色 (Morandi) | HSL 投影已接線；S=8～28、L=45～75，S 下限與需求 10 不同。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 馬卡龍色 (Macaron) | HSL 投影已接線；S=38～65、L=78～95，兩項下限均低於需求。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 大地色系 (Earth Tone) | H=18～58、S=22～58、L=28～65，均較需求放寬。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 美拉德色 (Maillard) | H=13～42、S=38～78、L 範圍=14～78；實際投影用 15／32／52／75 明度階梯，未完全符合 H／S 範圍。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 多巴胺色 (Dopamine) | S=78～100、L=52～80，下限低於需求。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 薄荷曼波 (Mint Mambo) | H=138～178、S=38～70、L=62～90；每第三色額外用黃／粉輔色，超出表定主色範圍。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 波普色 (Pop Art) | 已有六色環鎖色相；S=88～100、L=42～62，飽和度下限不同，未有極致明暗對比配置。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 森林自然系 (Biophilic) | H=72～158、S=20～65、L=22～68；末色為樹皮棕，未配置獨立晨霧灰角色，S 上限高於需求。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 海洋系 (Coastal) | H=178～232、S=28～75、L=25～82；末色有亞麻裸沙輔色，主色範圍較需求放寬。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §4.2 | 礦石地質系 (Mineral) | H=13～28、S=38～68、L=35～62；末色有板岩灰，但主色飽和度與需求 10～35 明顯不同，無獨立玄武岩角色。 風格投影使用 HSL，尚未接入 Oklch。依據：styles.js。 |
+> | §5.1 | 支援輸出比例 | 圖片模式已支援全部七種比例；憑空生成的 renderSwatchOnly 固定為 1200×600，尚未套用比例選項。 |
+> | §5.2 | 版型縮圖選擇器 | 已有四款佔比縮圖、文字提示與 CSS 高亮；缺 swatch-layout change 綁定與 AppState.options.swatchLayout，點選不會改變輸出，渲染仍預設 standard。 |
+> | §5.2 | 版型縮圖網格 | 已有四欄縮圖網格及照片／色票示意；.lp-thumb 為寬 100%、高 52px，非 40×30px，且尚無六類版型。依據：index.html、css/main.css。 |
+> | §5.2 | 版型高亮與懸停提示 | 已有 :checked 邊框與 title 名稱／比例提示；初始 standard 的 active class 未隨切換清除，可能同時高亮；尚未連動畫布。 |
+> | §5.2 | 版型分類（依色票區位置與構成） | 底部通欄與純色票模式可用；70% 比重未接入選擇流程，其餘空間排列尚未完成。 |
+> | §5.2 | 色票主導 (Swatch-Dominant) | scratch 已可省略照片產出純色票；渲染器有 color=70% 參數，但版型選擇未接線，沒有照片縮至角落的配置。 |
+> | §5.3 | 色塊排版 | 圖片模式支援等寬色塊、間距 0～16px、圓角 0～24px（包含需求的 0～12px）；純色票模式強制 gap／radius 至少 6px，無法忠實套用 0～5px。依據：drawSwatches、renderSwatchOnly。 |
+> | §5.3 | 標籤資訊展示 | 可關閉或將 HEX 置於色塊內／下方；色塊內以 relativeLuminance 決定黑白字。未有 RGB 標籤選項，下方文字固定灰色。依據：canvas-renderer.js。 |
+> | §6.2 | 圖像格式 | PNG 已從現有 Canvas 以 toBlob 匯出，畫布寬固定 1200px；未有獨立高解析度離屏匯出、尺寸倍率選項或 JPG。需求中的「無損」應限於 PNG，JPG 本身為有損格式。 |
+> | §6.2 | 向量格式 | SVG 已輸出色塊、間距、圓角與選用 HEX；未包含照片與完整畫布構圖，與 PNG 不一致。Figma／Illustrator 匯入尚未實測。依據：buildSvg。 |
+> | §6.2 | 程式碼與樣式 | 已有 CSS :root 與帶 $type／$value 的 JSON 檔案下載；未有 Tailwind 輸出或這兩者的一鍵複製，也未驗證 Design Tokens 標準相容性。同名近似色名會覆寫 JSON 鍵／產生重複 CSS 變數，已用 Node 重現 JSON 遺失一色。 |
+> | §7.2 | 繁體中文（zh-TW） | 主要介面已為繁體中文，html lang=zh-TW；未有 i18n 資源、語言切換與偏好記憶。依據：index.html、各 JS 元件。 |
+> | §8 | 色彩數學庫 | 已有自製色彩轉換、調和與亮度工具；感知色差、對比度評級與 Oklch 投影仍有缺口。 |
+> | §8 | Oklch 空間映射 | 已有 RGB↔OKLab／Oklch 轉換及 RGB 通道夾取；StyleEngine.projectColor 仍走 HSL，未將感知均勻空間投影接入主管線。 |
+>
+> ### 未完成
+>
+> | 原章節 | 項目 | 實作現況與缺口 |
+> | :--- | :--- | :--- |
+> | §3A | 亮部／暗部／主色／中性色保留 | 未見亮部／暗部／高飽和／中性色的保留配額或排序；samplePixels 反而排除平均亮度低於 20 或高於 235 的像素。 |
+> | §3A | 可拖曳取色錨點 (Draggable Sample Pins) | 未建立圖片座標錨點、編號或色槽對應；提取只回傳 HEX，未回傳代表位置。app.js 的 anchors 是生成模式的種子色，不是圖片取色錨點。 |
+> | §3A | 拖曳即時取色 | 現有拖曳是矩形框選，移動時僅預覽 tooltip，放開後覆寫第一個未鎖定色槽；並非拖曳錨點即時更新對應色槽。依據：color-sampler.js、initColorSampler。 |
+> | §3A | 錨點吸附與微調 | 未有放大鏡、錨點吸附或 3×3／5×5 邊緣平均取樣；僅有單像素與任意矩形區域平均色。 |
+> | §3A | 輔助滴管 (Eyedropper Fallback) | 未呼叫 window.EyeDropper；滴管按鈕實際啟用站內 Canvas 取色，不支援跨視窗或目前選取錨點。 |
+> | §3A | 新增／移除錨點 | 變更色數會重新生成色票；尚無圖片錨點集合、高權重區域定位與對應增刪。 |
+> | §4.1 | 單色調 (Monochromatic) | HarmonyEngine 與調和選單均無 monochromatic 模式。 |
+> | §4.1 | 60-30-10 分配原則 | 未定義底色／次色／中性／點睛色角色及配置規則；目前以演算法結果順序排列。 |
+> | §5.2 | 依色票數量篩選版型 | 未依色票數量篩選或重建縮圖，四款縮圖固定存在。 |
+> | §5.2 | 側邊直條 (Side Bar) | 尚無左右側欄幾何計算或選項。 |
+> | §5.2 | 四角散佈 (Corner Dots) | 尚無四角圓形色票繪製或選項。 |
+> | §5.2 | 標籤引線 (Labeled Callout) | 尚無來源位置引線、手寫風格標籤或編輯流程。 |
+> | §5.2 | 並排色條 (Adjacent Column) | half 代表上下各半的高度配置，不是照片與色票左右並列；尚無左右並排版型。 |
+> | §5.2 | 色票佔比微調 | 只有 12%／25%／50%／70% 常數，未有佔比滑桿或各類版型上下限；間距與圓角滑桿不是佔比設定。 |
+> | §6.1 | WCAG 2.1 對比度 | 只有相對亮度與黑白字選擇函式，未計算色塊／文字對比比值，也未顯示 AA／AAA 等級。依據：color-convert.js、swatch-list.js。 |
+> | §7.1 | 亮色系 (Light) | 未有亮色樣式主題或切換入口；目前 body 固定 dark-theme。 |
+> | §7.1 | 跟隨系統 (Auto / System) | 未有 prefers-color-scheme 偵測、系統變更監聽或自動模式。 |
+> | §7.2 | 英文（en） | 只有零星英文術語，未有完整英文介面、翻譯資源或切換。 |
+> | §7.2 | 日文（ja） | 未有日文翻譯資源或切換。 |
+> | §7.2 | 韓文（ko） | 未有韓文翻譯資源或切換。 |
+> | §7.2 | 泰文（th） | 未有泰文翻譯資源或切換。 |
+> | §7.2 | 越南文（vi） | 未有越南文翻譯資源或切換。 |
+> | §7.2 | 西班牙文（es） | 未有西班牙文翻譯資源或切換。 |
+> | §8 | PWA 與部署 | 版本庫未有 vite-plugin-pwa、manifest、Service Worker 或 .github/workflows；已完成 GitHub 原始碼上傳，不代表已發布 GitHub Pages，遠端 Pages 設定本次未查核。 |
+>
+> ### 替代實作
+>
+> | 原章節 | 項目 | 實作現況與缺口 |
+> | :--- | :--- | :--- |
+> | §8 | 核心框架 | 目前使用原生 JavaScript 與全域模組，無 Vue／React／Vite 或 package.json；屬建議技術未採用，不直接等於功能未完成。 |
+> | §8 | 樣式排版 | 使用 css/main.css 自訂 CSS 與響應式媒體查詢，未使用 Tailwind CSS。 |
+> | §8 | colord 色彩工具庫 | 未使用 colord；color-convert.js、color-math.js、harmony.js 承接部分功能，尚無完整 a11y 對比度評級。 |
+> | §8 | 圖像提取庫 | 未使用 colorthief；由自製 K-means++ 提取。功能差異見 §3 模式 A。 |
+> | §8 | 二進位生成庫 | 未使用 ase-utils；由 DataView 自行建立 ASE 與 ACO 二進位內容。 |
