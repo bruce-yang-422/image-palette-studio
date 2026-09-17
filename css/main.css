@@ -994,6 +994,24 @@ body::after {
   transform: rotate(200deg);
 }
 
+.carry-locks-action {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--clr-border);
+}
+
+.carry-locks-action .btn-action {
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+  background: var(--clr-bg-elevated);
+  border: 1px solid var(--clr-border-hover);
+}
+
+.carry-locks-action .btn-action:hover svg {
+  transform: translateX(3px);
+}
+
 /* ----------------------------------------------------------------
    14. SWATCH LIST (Right Panel)
    ---------------------------------------------------------------- */

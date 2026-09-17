@@ -225,7 +225,10 @@ function initComponents() {
   SwatchListComponent.onLockChange((index, locked) => {
     AppState.locked[index] = locked;
     ImagePins.sync();
+    updateCarryLocksVisibility();
   });
+
+  document.getElementById('btn-carry-locks')?.addEventListener('click', carryLockedColorsToScratch);
 
   SwatchListComponent.onColorChange((index, newHex) => {
     AppState.palette[index] = newHex;
@@ -935,6 +938,7 @@ function updateAllUI() {
   ImagePins.sync();
   redraw();
   updateModeDescription();
+  updateCarryLocksVisibility();
 }
 
 /**
@@ -969,6 +973,42 @@ function updateStyleSectionVisibility() {
   const shouldHide = AppState.options.genSource === 'image';
   $styleSection.hidden = shouldHide;
   if ($styleDivider) $styleDivider.hidden = shouldHide;
+}
+
+/** 圖片模式下，只要有鎖定色，就提示可以把它們當錨點色帶去憑空生成。 */
+function updateCarryLocksVisibility() {
+  const box = document.getElementById('carry-locks-action');
+  if (!box) return;
+  const count = AppState.locked.filter(Boolean).length;
+  box.hidden = !(AppState.options.genSource === 'image' && count > 0);
+  const countEl = document.getElementById('carry-locks-count');
+  if (countEl) countEl.textContent = count;
+}
+
+/**
+ * 把圖片模式下鎖定的色票帶到憑空生成當錨點色，其餘色票交給演算法計算——
+ * 這樣風格／演算法產生的新顏色就不再需要「必須源自照片」，因為已經離開圖片模式。
+ */
+function carryLockedColorsToScratch() {
+  const lockedHexes = AppState.palette.filter((_, i) => AppState.locked[i]);
+  if (!lockedHexes.length) return;
+
+  const scratchRadio = document.querySelector('input[name="gen-source"][value="scratch"]');
+  if (!scratchRadio) return;
+  scratchRadio.checked = true;
+  scratchRadio.dispatchEvent(new Event('change'));
+
+  const maxAnchors = AppState.options.swatchCount - 1;
+  const anchors = lockedHexes.slice(0, maxAnchors);
+  if (lockedHexes.length > maxAnchors) {
+    AppToast.show(`最多可帶 ${maxAnchors} 個鎖定色為錨點（色票數−1），其餘已忽略`, 'warning');
+  }
+  AppState.anchors = anchors;
+  AppState.locked = new Array(AppState.options.swatchCount).fill(false);
+  renderAnchorList();
+  updateAnchorAddButtonState();
+  generatePalette();
+  AppToast.show(`已帶 ${anchors.length} 個鎖定色到憑空生成`, 'success');
 }
 
 function updateModeDescription() {
