@@ -116,6 +116,30 @@ const ColorConvert = (() => {
     return rgbToHex(r, g, b);
   }
 
+  /** Parse opaque HEX, rgb() or hsl(); reject malformed / out-of-range input. */
+  function parseColor(value) {
+    const input = value.trim();
+    if (/^#?(?:[\da-f]{3}|[\da-f]{6})$/i.test(input)) {
+      const { r, g, b } = hexToRgb(input);
+      return rgbToHex(r, g, b);
+    }
+    const number = '([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))';
+    const rgb = input.match(new RegExp(`^rgb\\(\\s*${number}\\s*,\\s*${number}\\s*,\\s*${number}\\s*\\)$`, 'i'));
+    if (rgb) {
+      const channels = rgb.slice(1).map(Number);
+      return channels.every(v => Number.isFinite(v) && v >= 0 && v <= 255)
+        ? rgbToHex(...channels) : null;
+    }
+    const hsl = input.match(new RegExp(`^hsl\\(\\s*${number}(?:deg)?\\s*,\\s*${number}%\\s*,\\s*${number}%\\s*\\)$`, 'i'));
+    if (hsl) {
+      const [h, s, l] = hsl.slice(1).map(Number);
+      if ([h, s, l].every(Number.isFinite) && s >= 0 && s <= 100 && l >= 0 && l <= 100) {
+        return hslToHex(((h % 360) + 360) % 360, s, l);
+      }
+    }
+    return null;
+  }
+
   // ─────────────────────────────────────────────
   // RGB ↔ Oklch (近似實作，純前端零依賴)
   // ─────────────────────────────────────────────
@@ -247,8 +271,17 @@ const ColorConvert = (() => {
    * @returns {'#000000'|'#ffffff'}
    */
   function contrastColor(hex) {
-    const { r, g, b } = hexToRgb(hex);
-    return relativeLuminance(r, g, b) > 0.179 ? '#000000' : '#ffffff';
+    return contrastRatio(hex,'#000000') >= contrastRatio(hex,'#ffffff') ? '#000000' : '#ffffff';
+  }
+
+  function contrastRatio(first,second) {
+    const luminance=hex=>{const {r,g,b}=hexToRgb(hex);return relativeLuminance(r,g,b);};
+    const a=luminance(first),b=luminance(second);
+    return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+  }
+  function contrastReport(background,foreground=contrastColor(background)) {
+    const ratio=contrastRatio(background,foreground);
+    return {foreground,ratio,grade:ratio>=7?'AAA':ratio>=4.5?'AA':'未達 AA'};
   }
 
   // ─────────────────────────────────────────────
@@ -261,11 +294,14 @@ const ColorConvert = (() => {
     hslToRgb,
     hexToHsl,
     hslToHex,
+    parseColor,
     rgbToOklch,
     oklchToHex,
     hexToAllFormats,
     relativeLuminance,
     contrastColor,
+    contrastRatio,
+    contrastReport,
     rgbToCss,
     hslToCss,
   };

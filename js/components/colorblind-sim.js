@@ -51,15 +51,7 @@ const ColorblindSim = (() => {
 
     const workspace = document.getElementById('app-workspace');
     if (!workspace) return;
-
-    if (filterKey === 'none') {
-      workspace.style.filter = '';
-      workspace.style.webkitFilter = '';
-    } else {
-      const filterId = `filter-${filterKey}`;
-      workspace.style.filter = `url(#${filterId})`;
-      workspace.style.webkitFilter = `url(#${filterId})`;
-    }
+    document.documentElement.style.setProperty('--vision-filter',filterKey==='none'?'none':`url(#filter-${filterKey})`);
 
     // 更新選單 active 狀態
     menu?.querySelectorAll('.dropdown-item').forEach(item => {

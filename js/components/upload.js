@@ -13,6 +13,7 @@ const UploadComponent = (() => {
 
   let _onImageLoaded = null;  // callback(imgElement, file)
   let _onImageRemoved = null; // callback()
+  let loadVersion = 0;
 
   // DOM 引用
   let dropzone, uploadInput, uploadPreview, thumbnail, btnRemove, btnTrigger;
@@ -52,6 +53,7 @@ const UploadComponent = (() => {
     });
     dropzone.addEventListener('drop', e => {
       e.preventDefault();
+      e.stopPropagation();
       dropzone.classList.remove('drag-over');
       const file = e.dataTransfer?.files?.[0];
       if (file) handleFile(file);
@@ -62,7 +64,18 @@ const UploadComponent = (() => {
     document.addEventListener('drop', e => {
       e.preventDefault();
       const file = e.dataTransfer?.files?.[0];
-      if (file && isValidImage(file)) handleFile(file);
+      if (file) handleFile(file);
+    });
+
+    // 圖片貼上沿用相同驗證流程；文字輸入區保留原有貼上行為。
+    document.addEventListener('paste', e => {
+      if (e.target.closest?.('input, textarea, [contenteditable]:not([contenteditable="false"])')) return;
+      const item = Array.from(e.clipboardData?.items ?? [])
+        .find(item => item.kind === 'file' && item.type.startsWith('image/'));
+      const file = item?.getAsFile();
+      if (!file) return;
+      e.preventDefault();
+      handleFile(file);
     });
 
     // 移除圖片
@@ -94,18 +107,25 @@ const UploadComponent = (() => {
 
   function handleFile(file) {
     if (!isValidImage(file)) return;
+    const version = ++loadVersion;
 
     const reader = new FileReader();
     reader.onload = e => {
+      if (version !== loadVersion) return;
       const img = new Image();
       img.onload = () => {
+        if (version !== loadVersion) return;
         showPreview(e.target.result);
         _onImageLoaded?.(img, file);
       };
       img.onerror = () => {
+        if (version !== loadVersion) return;
         window.AppToast?.show('圖片讀取失敗，請重試', 'error');
       };
       img.src = e.target.result;
+    };
+    reader.onerror = () => {
+      if (version === loadVersion) window.AppToast?.show('檔案讀取失敗，請重試', 'error');
     };
     reader.readAsDataURL(file);
   }
@@ -122,6 +142,7 @@ const UploadComponent = (() => {
   }
 
   function removeImage() {
+    loadVersion++;
     uploadPreview.hidden = true;
     thumbnail.src = '';
     dropzone.style.display = '';

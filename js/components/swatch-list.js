@@ -13,6 +13,7 @@ const SwatchListComponent = (() => {
   let _locked  = [];        // boolean[]
   let _onLockChange = null; // callback(index, locked)
   let _onColorChange = null;// callback(index, newHex)
+  let _onSelect = null;
 
   let listEl;
 
@@ -29,7 +30,7 @@ const SwatchListComponent = (() => {
    * @param {string[]} palette HEX 陣列
    * @param {boolean[]} [locked] 鎖定狀態（可選）
    */
-  function render(palette, locked = []) {
+  function render(palette, locked = [], selected = -1) {
     _palette = [...palette];
     _locked  = palette.map((_, i) => locked[i] ?? false);
 
@@ -46,6 +47,14 @@ const SwatchListComponent = (() => {
       // Stagger animation delay
       li.style.animationDelay = `${i * 40}ms`;
     });
+    select(selected);
+  }
+
+  function select(index) {
+    listEl?.querySelectorAll('.swatch-item').forEach((li, i) => {
+      li.classList.toggle('is-selected', i === index);
+      li.querySelector('.swatch-select')?.setAttribute('aria-pressed', String(i === index));
+    });
   }
 
   /**
@@ -54,6 +63,7 @@ const SwatchListComponent = (() => {
   function buildSwatchItem(hex, index, isLocked) {
     const name = ColorMath.approximateName(hex);
     const formats = ColorConvert.hexToAllFormats(hex);
+    const contrast = ColorConvert.contrastReport(hex);
 
     const li = document.createElement('li');
     li.className = 'swatch-item';
@@ -62,12 +72,14 @@ const SwatchListComponent = (() => {
     if (isLocked) li.classList.add('is-locked');
 
     li.innerHTML = `
+      <button class="swatch-select" aria-label="選取色槽 ${index+1}" aria-pressed="false">${index+1}</button>
       <div class="swatch-color" style="background:${hex}"
            aria-label="色票顏色 ${hex.toUpperCase()}"
            title="點擊選色器調整"></div>
       <div class="swatch-info">
         <span class="swatch-hex">${hex.toUpperCase()}</span>
         <span class="swatch-name">${name}</span>
+        <span class="swatch-contrast" title="一般文字對比；建議文字色 ${contrast.foreground}">${contrast.foreground === '#000000' ? '黑字' : '白字'} ${contrast.ratio.toFixed(2)}:1 · ${contrast.grade}</span>
       </div>
       <div class="swatch-actions">
         <button class="swatch-btn-lock"
@@ -89,6 +101,7 @@ const SwatchListComponent = (() => {
 
     // 色塊點擊 → 開啟 color picker
     const colorDiv   = li.querySelector('.swatch-color');
+    li.querySelector('.swatch-select').addEventListener('click', () => _onSelect?.(index));
     const colorInput = li.querySelector('.swatch-color-input');
     colorDiv.addEventListener('click', () => colorInput.click());
     colorInput.addEventListener('input', e => {
@@ -97,6 +110,7 @@ const SwatchListComponent = (() => {
       li.querySelector('.swatch-hex').textContent = newHex.toUpperCase();
       li.querySelector('.swatch-name').textContent = ColorMath.approximateName(newHex);
       _palette[index] = newHex;
+      updateContrast(li,newHex);
       _onColorChange?.(index, newHex);
     });
 
@@ -106,7 +120,7 @@ const SwatchListComponent = (() => {
 
     // 複製 HEX
     const copyBtn = li.querySelector('.swatch-btn-copy');
-    copyBtn.addEventListener('click', () => copyHex(hex, copyBtn));
+    copyBtn.addEventListener('click', () => copyHex(_palette[index], copyBtn));
 
     // Tooltip — 懸停顯示所有格式
     colorDiv.title = [
@@ -172,6 +186,13 @@ const SwatchListComponent = (() => {
     li.querySelector('.swatch-hex').textContent = newHex.toUpperCase();
     li.querySelector('.swatch-name').textContent = ColorMath.approximateName(newHex);
     li.querySelector('.swatch-color-input').value = newHex;
+    updateContrast(li,newHex);
+  }
+
+  function updateContrast(li,hex) {
+    const result=ColorConvert.contrastReport(hex),badge=li.querySelector('.swatch-contrast');
+    badge.textContent=`${result.foreground === '#000000' ? '黑字' : '白字'} ${result.ratio.toFixed(2)}:1 · ${result.grade}`;
+    badge.title=`一般文字對比；建議文字色 ${result.foreground}`;
   }
 
   // ─────────────────────────────────────────────
@@ -218,6 +239,8 @@ const SwatchListComponent = (() => {
   return {
     init: () => { init(); injectLockStyles(); },
     render,
+    select,
+    onSelect: (cb) => { _onSelect = cb; },
     updateSwatch,
     getPalette:  () => [..._palette],
     getLocked:   () => [..._locked],

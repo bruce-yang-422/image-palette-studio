@@ -27,7 +27,7 @@ window.AppToast = (() => {
     toast.className = `toast toast-${type}`;
     toast.setAttribute('role', 'alert');
     const icons = { success: '✓', warning: '⚠', error: '✕' };
-    toast.innerHTML = `<span class="toast-icon" style="font-weight:700;margin-right:4px">${icons[type] ?? '●'}</span><span>${message}</span>`;
+    toast.textContent = `${icons[type] ?? '●'} ${message}`;
     container.appendChild(toast);
     setTimeout(() => {
       toast.classList.add('toast-exit');
@@ -44,7 +44,10 @@ window.AppToast = (() => {
 const AppState = {
   image: null,          // HTMLImageElement
   palette: [],          // string[] — 最終 HEX 色票
+  basePalette: [],      // 未投影色票，切換風格時可還原
   locked: [],           // boolean[] — 對應鎖定狀態
+  pins: [],            // 原圖座標（0~1）與原始取樣色
+  selectedSlot: 0,
 
   /** 錨點色（憑空生成時的種子色） */
   anchors: [],          // string[] HEX
@@ -54,15 +57,18 @@ const AppState = {
 
   options: {
     // 頂層模式
-    genSource:     'image',    // 'image' | 'scratch'
+    genSource:     'scratch',  // 'image' | 'scratch'
     imgPostprocess:'raw',      // 'raw' | 'remap'
-    genAlgo:       'chaos',    // 'chaos' | 'harmony'
+    genAlgo:       'harmony',  // 'chaos' | 'harmony'
     harmonyType:   'analogous',
 
     // 畫布
     aspectRatio:  'original',
     fitMode:      'crop',
     swatchCount:  5,
+    swatchLayout: 'bottom',
+    swatchRatio: 25,
+    calloutLabels: [],
 
     /** 裁切模式下圖片的拖曳位移，範圍 -1~1（0 = 置中） */
     cropOffset:   { x: 0, y: 0 },
@@ -74,6 +80,7 @@ const AppState = {
     gap:          4,
     radius:       0,
     hexLabel:     'none',
+    labelFormat:  'hex',
   },
 };
 
@@ -86,7 +93,7 @@ const MODE_DESCRIPTIONS = {
   'image-remap':  'K-means++ 從圖片提取色彩，再強制投影至所選風格（Image Remap）',
   'chaos':        '全色彩空間隨機取樣，附安全亮度邊界保護；鎖定色票後重生成可保留主色',
   'chaos-anchor': '在錨點色附近進行 Chaos 隨機展開，未鎖定的空位以差異色補齊',
-  'harmony':      '以錨點色（或隨機基準色）展開和諧配色——類比/互補/分裂互補/三角色',
+  'harmony':      '以錨點色（或隨機基準色）展開和諧配色——類比/互補/分裂互補/三角色/單色調',
 };
 
 // ─────────────────────────────────────────────
@@ -128,6 +135,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initCropDrag();
   initColorSampler();
   initKeyboardShortcuts();
+  syncOptionControls();
+  const initialSource = document.querySelector('input[name="gen-source"][value="scratch"]');
+  initialSource.checked = true;
+  initialSource.dispatchEvent(new Event('change'));
   updateModeDescription();
   console.info('🎨 Image Palette Studio v2 已載入');
 });
@@ -141,15 +152,30 @@ function initComponents() {
   SwatchListComponent.init();
   ColorblindSim.init();
   GradientGen.init();
+  AccessibilityPanel.init();
+  LayoutGallery.init({getState:()=>AppState,onChange:changes=>{
+    Object.assign(AppState.options,changes);
+    redraw();
+  }});
+  ImagePins.init({
+    getState: () => ({ ...AppState, genSource: AppState.options.genSource }),
+    onSelect: selectSlot,
+    onPick: (index, pin) => {
+      AppState.pins[index] = pin;
+      AppState.basePalette[index] = pin.hex;
+      AppState.palette[index] = pin.hex;
+      AppState.selectedSlot = index;
+      updateAllUI();
+    },
+  });
+  SwatchListComponent.onSelect(selectSlot);
+  document.getElementById('btn-mobile-regenerate').addEventListener('click', () => generatePalette());
   ExportUI.init(
     () => $canvas,
     () => AppState.palette,
     () => AppState.palette.map(h => ColorMath.approximateName(h)),
-    () => ({
-      gap:     AppState.options.gap,
-      radius:  AppState.options.radius,
-      showHex: AppState.options.hexLabel !== 'none',
-    })
+    () => ({...AppState.options,pins:AppState.pins.map(pin=>({...pin})),
+      image:AppState.options.genSource==='image'?AppState.image:null})
   );
 
   // 「立即生成」快捷按鈕（scratch hint box）
@@ -158,31 +184,56 @@ function initComponents() {
   });
 
   UploadComponent.onImageLoaded((img, file) => {
+    modeSessions.image = null;
+    if (AppState.options.genSource === 'image') {
+      AppState.palette = []; AppState.basePalette = []; AppState.locked = []; AppState.pins = [];
+      AppState.selectedSlot = 0;
+    }
     AppState.image = img;
+    ImagePins.setImage(img);
     AppState.options.cropOffset = { x: 0, y: 0 };
+    const imageRadio = document.querySelector('input[name="gen-source"][value="image"]');
+    imageRadio.checked = true;
+    imageRadio.dispatchEvent(new Event('change'));
     showImageCanvas();
-    generatePalette();
     AppToast.show(`已載入：${file.name}`, 'success');
   });
 
   UploadComponent.onImageRemoved(() => {
+    generationVersion++;
+    setLoading(false);
     AppState.image   = null;
+    modeSessions.image = null;
+    AppState.pins = [];
+    ImagePins.setImage(null);
+    ImagePins.sync();
+    if (AppState.options.genSource !== 'image') return;
     AppState.palette = [];
+    AppState.basePalette = [];
     AppState.locked  = [];
     // 只有在圖片模式才切回佔位
     if (AppState.options.genSource === 'image') hideCanvas();
     SwatchListComponent.render([]);
     GradientGen.update([]);
+    AccessibilityPanel.update([]);
+    ExportUI.update();
   });
 
   SwatchListComponent.onLockChange((index, locked) => {
     AppState.locked[index] = locked;
+    ImagePins.sync();
   });
 
   SwatchListComponent.onColorChange((index, newHex) => {
     AppState.palette[index] = newHex;
+    AppState.basePalette[index] = newHex;
+    if (AppState.options.genSource === 'image' && AppState.pins[index]) {
+      AppState.pins[index] = { ...AppState.pins[index], hex: newHex, external: true };
+      ImagePins.sync();
+    }
     redraw();
     GradientGen.update(AppState.palette);
+    AccessibilityPanel.update(AppState.palette);
   });
 }
 
@@ -190,12 +241,53 @@ function initComponents() {
 // 頂層：圖片提取 vs 憑空生成
 // ─────────────────────────────────────────────
 
+const modeSessions = { image: null, scratch: null };
+
+function selectSlot(index) {
+  AppState.selectedSlot = index;
+  SwatchListComponent.select(index);
+  ImagePins.sync();
+}
+
+function syncOptionControls() {
+  const groups = { 'gen-algo':'genAlgo', 'swatch-count':'swatchCount', 'style-preset':'stylePreset',
+    'aspect-ratio':'aspectRatio', 'fit-mode':'fitMode', 'swatch-layout':'swatchLayout',
+    'img-postprocess':'imgPostprocess', 'hex-label':'hexLabel' };
+  for (const [name,key] of Object.entries(groups)) {
+    document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
+      radio.checked = radio.value === String(AppState.options[key]);
+      radio.closest('label')?.classList.toggle('active', radio.checked);
+    });
+  }
+  document.getElementById('harmony-type').value = AppState.options.harmonyType;
+  $harmonyAlgoOpts.hidden = AppState.options.genAlgo !== 'harmony';
+  $gapInput.value = AppState.options.gap; $gapVal.textContent = `${AppState.options.gap}px`;
+  $radiusInput.value = AppState.options.radius; $radiusVal.textContent = `${AppState.options.radius}px`;
+  document.getElementById('label-format').value=AppState.options.labelFormat;
+  LayoutGallery.sync();
+}
+
 function initGenSourceControls() {
   // 頂層模式切換
   document.querySelectorAll('input[name="gen-source"]').forEach(radio => {
     radio.addEventListener('change', e => {
       if (!e.target.checked) return;
-      AppState.options.genSource = e.target.value;
+      const previous = AppState.options.genSource;
+      const next = e.target.value;
+      if (previous !== next) {
+        modeSessions[previous] = { palette:[...AppState.palette], basePalette:[...AppState.basePalette],
+          locked:[...AppState.locked], pins:AppState.pins.map(p => ({...p})), selectedSlot:AppState.selectedSlot,
+          options:{...AppState.options, cropOffset:{...AppState.options.cropOffset}} };
+        const saved = modeSessions[next];
+        if (saved) Object.assign(AppState, saved);
+        else Object.assign(AppState, { palette:[], basePalette:[], locked:[], pins:[], selectedSlot:0 });
+      }
+      AppState.options.genSource = next;
+      syncOptionControls();
+      renderAnchorList();
+      ColorSampler.deactivate();
+      generationVersion++;
+      setLoading(false);
 
       // 更新 tab active class
       document.querySelectorAll('.gen-source-tab').forEach(tab => {
@@ -213,18 +305,27 @@ function initGenSourceControls() {
       const scratchHint    = document.getElementById('section-scratch-hint');
       if (uploadSection) uploadSection.hidden  = !isImage;
       if (scratchHint)   scratchHint.hidden    =  isImage;
+      document.getElementById('btn-mobile-regenerate').hidden = isImage;
+      document.getElementById('fit-mode-group').hidden = !isImage;
+      document.getElementById('section-layout').hidden = !isImage;
+      ImagePins.sync();
 
       if (isImage) {
         // 切回圖片模式
         if (!AppState.image) {
           hideCanvas();
-          AppToast.show('請上傳圖片以使用圖片提取模式', 'warning');
+          SwatchListComponent.render([]);
+          GradientGen.update([]);
+          AccessibilityPanel.update([]);
+          ExportUI.update();
         } else {
-          generatePalette();
+          if (AppState.palette.length) updateAllUI();
+          else generatePalette();
         }
       } else {
         // 切到憑空生成模式 → 直接生成並顯示純色票畫布
-        generatePalette();
+        if (AppState.palette.length) updateAllUI();
+        else generatePalette();
       }
 
       updateModeDescription();
@@ -268,9 +369,12 @@ function initGenSourceControls() {
     radio.addEventListener('change', e => {
       if (!e.target.checked) return;
       AppState.options.swatchCount = parseInt(e.target.value);
+      AppState.selectedSlot = Math.min(AppState.selectedSlot, AppState.options.swatchCount - 1);
+      if (AppState.options.genSource === 'scratch') AppState.anchors = AppState.anchors.slice(0, AppState.options.swatchCount - 1);
+      renderAnchorList();
       updateChipActiveInGroup(e.target, 'swatch-count');
       updateAnchorAddButtonState();
-      generatePalette();
+      generatePalette(true, true);
     });
   });
 
@@ -396,9 +500,10 @@ function buildAnchorItem(hex, index) {
     <input type="color" class="anchor-color-picker" value="${hex}" hidden aria-hidden="true" />
     <input type="text" class="anchor-hex-input"
            value="${hex.toUpperCase()}"
-           maxlength="7"
-           placeholder="#RRGGBB"
-           aria-label="錨點色 ${index+1} HEX 色碼" />
+           maxlength="64"
+           placeholder="HEX / rgb() / hsl()"
+           title="例如 #FF8040、rgb(255, 128, 64)、hsl(20, 100%, 63%)"
+           aria-label="錨點色 ${index+1} HEX、RGB 或 HSL 色碼" />
     <button class="anchor-random-btn" title="隨機換色" aria-label="隨機更換此錨點色">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
         <polyline points="23 4 23 10 17 10"/>
@@ -434,14 +539,15 @@ function buildAnchorItem(hex, index) {
 
   // HEX 輸入框
   hexInp.addEventListener('change', e => {
-    let val = e.target.value.trim();
-    if (!val.startsWith('#')) val = '#' + val;
-    if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    const val = ColorConvert.parseColor(e.target.value);
+    if (val) {
+      hexInp.value = val.toUpperCase();
       swatch.style.background = val;
       picker.value = val;
       updateAnchor(index, val);
     } else {
       hexInp.value = AppState.anchors[index]?.toUpperCase() ?? '#888888';
+      AppToast.show('請輸入有效的 HEX、rgb(0, 0, 0) 或 hsl(0, 0%, 0%) 色碼', 'warning');
     }
   });
 
@@ -477,6 +583,10 @@ function updateAnchorAddButtonState() {
 // ─────────────────────────────────────────────
 
 function initCanvasControls() {
+  document.getElementById('label-format').addEventListener('change',event=>{
+    AppState.options.labelFormat=event.target.value;
+    redraw();
+  });
   $gapInput?.addEventListener('input', e => {
     const v = parseInt(e.target.value);
     AppState.options.gap = v;
@@ -527,6 +637,11 @@ function initCropDrag() {
 
   function beginDrag(clientX, clientY) {
     if (!isDragEnabled()) return false;
+    const scene=$canvas.paletteScene,rect=$canvas.getBoundingClientRect();
+    if(scene?.photo) {
+      const x=(clientX-rect.left)/rect.width*scene.width,y=(clientY-rect.top)/rect.height*scene.height,p=scene.photo;
+      if(x<p.x||x>p.x+p.w||y<p.y||y>p.y+p.h) return false;
+    }
     dragging = true;
     startClient = { x: clientX, y: clientY };
     startOffset = { ...AppState.options.cropOffset };
@@ -599,6 +714,7 @@ function initColorSampler() {
     const idx = AppState.palette.findIndex((_, i) => !AppState.locked[i]);
     if (idx >= 0) {
       AppState.palette[idx] = hex;
+      AppState.basePalette[idx] = hex;
       SwatchListComponent.render(AppState.palette, AppState.locked);
       GradientGen.update(AppState.palette);
       redraw();
@@ -622,7 +738,8 @@ function initColorSampler() {
       AppToast.show('請先上傳圖片', 'warning');
       return;
     }
-    ColorSampler.toggle();
+    document.getElementById('image-picker').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.querySelector(`.sample-pin[data-index="${AppState.selectedSlot}"]`)?.focus({ preventScroll: true });
   });
 
   $btnSamplerDone?.addEventListener('click', () => {
@@ -636,8 +753,9 @@ function initColorSampler() {
 
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', e => {
-    const active = document.activeElement.tagName;
-    if (['INPUT','TEXTAREA','SELECT'].includes(active)) return;
+    const active = document.activeElement;
+    if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey ||
+        active?.isContentEditable || ['INPUT','TEXTAREA','SELECT','BUTTON','A'].includes(active?.tagName)) return;
 
     if (e.code === 'Space' || e.code === 'KeyR') {
       e.preventDefault();
@@ -655,12 +773,15 @@ function initKeyboardShortcuts() {
 // 核心：色票生成主流程
 // ─────────────────────────────────────────────
 
+let generationVersion = 0;
+
 /**
  * 依據 AppState.options 生成色票並更新所有 UI
  * @param {boolean} preserveLocked 是否保留鎖定色票
  */
-async function generatePalette(preserveLocked = false) {
-  const { genSource, imgPostprocess, genAlgo, harmonyType, stylePreset, swatchCount } = AppState.options;
+async function generatePalette(preserveLocked = true, preserveSamples = false) {
+  const version = ++generationVersion;
+  const { genSource, genAlgo, harmonyType, swatchCount } = AppState.options;
 
   // 備份鎖定色
   const lockedSlots = preserveLocked
@@ -677,8 +798,18 @@ async function generatePalette(preserveLocked = false) {
         return;
       }
       setLoading(true);
-      basePalette = await ExtractionEngine.extractFromElement(AppState.image, swatchCount);
-      setLoading(false);
+      const candidates = await ExtractionEngine.extractSamples(AppState.image, swatchCount);
+      if (version !== generationVersion) return;
+      const previous = AppState.pins;
+      const kept = previous.slice(0, swatchCount).filter((_, i) => preserveSamples || (preserveLocked && AppState.locked[i]));
+      const used = [...kept];
+      AppState.pins = Array.from({length:swatchCount}, (_, i) => {
+        if (previous[i] && (preserveSamples || (preserveLocked && AppState.locked[i]))) return previous[i];
+        const candidate = candidates.find(p => !used.some(c => Math.hypot(c.x-p.x,c.y-p.y)<.01)) || candidates[i];
+        used.push(candidate);
+        return { ...candidate, hex:ImagePins.sample(candidate) || candidate.hex };
+      });
+      basePalette = AppState.pins.map(p => p.hex);
 
     // ── 模式 2：憑空生成 ──────────────────────
     } else {
@@ -700,33 +831,19 @@ async function generatePalette(preserveLocked = false) {
           ?? ColorMath.randomSafeHex();
 
         basePalette = HarmonyEngine.generate(baseHex, harmonyType, swatchCount);
-
-        // 若有多個錨點，替換對應位置
-        AppState.anchors.forEach((hex, i) => {
-          if (i < basePalette.length) basePalette[i] = hex;
-        });
       }
     }
 
   } catch (err) {
-    setLoading(false);
+    if (version !== generationVersion) return;
     AppToast.show(`生成失敗：${err.message}`, 'error');
-    basePalette = ColorMath.randomPalette(swatchCount);
+    return;
+  } finally {
+    if (version === generationVersion) setLoading(false);
   }
-
-  // ── Style Projection ─────────────────────────
-  // 圖片提取：只有 imgPostprocess === 'remap' 才投影
-  const shouldProject = (genSource === 'scratch') || (imgPostprocess === 'remap');
-  let projected = shouldProject
-    ? StyleEngine.projectPalette(basePalette, stylePreset, lockedSlots.map(h => h !== null))
-    : basePalette;
-
-  // ── Locked Color Merge ────────────────────────
-  AppState.palette = projected.map((hex, i) => lockedSlots[i] ?? hex);
-
-  // 確保長度對齊
-  while (AppState.palette.length < swatchCount) AppState.palette.push(ColorMath.randomSafeHex());
-  AppState.palette = AppState.palette.slice(0, swatchCount);
+  if (version !== generationVersion) return;
+  AppState.basePalette = basePalette.slice(0, swatchCount);
+  AppState.palette = composePalette(AppState.basePalette, preserveLocked);
   AppState.locked  = AppState.palette.map((_, i) =>
     preserveLocked ? (AppState.locked[i] ?? false) : false
   );
@@ -776,12 +893,23 @@ function fillAroundAnchors(anchors, total, algo) {
  * 保留 palette，僅重新套用風格（切換風格預設時）
  */
 function applyStyleAndRedraw() {
-  const { stylePreset, imgPostprocess, genSource } = AppState.options;
-  const shouldProject = genSource === 'scratch' || imgPostprocess === 'remap';
-  if (shouldProject) {
-    AppState.palette = StyleEngine.projectPalette(AppState.palette, stylePreset, AppState.locked);
-  }
+  AppState.palette = composePalette(AppState.basePalette);
   updateAllUI();
+}
+
+/** Project the original palette, then merge exact user colors and locked slots. */
+function composePalette(basePalette, preserveLocked = true) {
+  const { genSource, imgPostprocess, stylePreset } = AppState.options;
+  const projected = genSource === 'scratch' || imgPostprocess === 'remap'
+    ? StyleEngine.projectPalette(basePalette, stylePreset) : [...basePalette];
+  let anchorIndex = 0;
+  return projected.map((hex, i) => {
+    if (preserveLocked && AppState.locked[i] && AppState.palette[i]) return AppState.palette[i];
+    if (genSource === 'scratch' && anchorIndex < AppState.anchors.length) {
+      return AppState.anchors[anchorIndex++];
+    }
+    return ColorConvert.parseColor(hex) ?? '#808080';
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -789,8 +917,10 @@ function applyStyleAndRedraw() {
 // ─────────────────────────────────────────────
 
 function updateAllUI() {
-  SwatchListComponent.render(AppState.palette, AppState.locked);
+  SwatchListComponent.render(AppState.palette, AppState.locked, AppState.selectedSlot);
   GradientGen.update(AppState.palette);
+  AccessibilityPanel.update(AppState.palette);
+  ImagePins.sync();
   redraw();
   updateModeDescription();
 }
@@ -800,6 +930,8 @@ function updateAllUI() {
  */
 function redraw() {
   const { genSource } = AppState.options;
+  LayoutGallery.sync();
+  ExportUI.update();
 
   if (genSource === 'scratch') {
     // 憑空生成：純色票畫布（不需要圖片）
@@ -812,7 +944,7 @@ function redraw() {
     // 圖片提取模式：需要圖片
     if (!AppState.image || !AppState.palette.length) return;
     showImageCanvas();
-    CanvasRenderer.render($canvas, AppState.image, AppState.palette, AppState.options);
+    CanvasRenderer.render($canvas, AppState.image, AppState.palette, {...AppState.options,pins:AppState.pins});
     CanvasRenderer.fitToContainer($canvas, $canvasWrap);
   }
 
@@ -878,7 +1010,7 @@ function updateToggleChipActive(checkedInput) {
 // ─────────────────────────────────────────────
 
 window.addEventListener('resize', () => {
-  if (AppState.image && !$canvas.hidden) {
+  if (!$canvas.hidden) {
     CanvasRenderer.fitToContainer($canvas, $canvasWrap);
     ColorSampler.syncOverlay?.();
   }

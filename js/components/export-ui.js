@@ -1,100 +1,42 @@
-/**
- * export-ui.js
- * 匯出 UI 元件
- * 連結 HTML 匯出按鈕 → ExportEngine
- * 依賴：export-engine.js
- */
-
 'use strict';
-
-const ExportUI = (() => {
-
-  let _getCanvas  = null;  // () => HTMLCanvasElement
-  let _getPalette = null;  // () => string[]
-  let _getNames   = null;  // () => string[]
-  let _getOpts    = null;  // () => object
-
-  function init(getCanvas, getPalette, getNames, getOpts) {
-    _getCanvas  = getCanvas;
-    _getPalette = getPalette;
-    _getNames   = getNames;
-    _getOpts    = getOpts;
-
-    bindButton('btn-export-png',  'png');
-    bindButton('btn-export-svg',  'svg');
-    bindButton('btn-export-ase',  'ase');
-    bindButton('btn-export-aco',  'aco');
-    bindButton('btn-export-json', 'json');
-    bindButton('btn-export-css',  'css');
-
-    // Header 主匯出按鈕（預設 PNG）
-    document.getElementById('btn-export-main')?.addEventListener('click', () => {
-      triggerExport('png');
-    });
+const ExportUI=(()=>{
+  let getCanvas,getPalette,getNames,getOptions,busy=false;
+  const formats=['png','jpg','svg','ase','aco','json','css','tailwind'];
+  function options() {
+    return {...getOptions(),exportScale:Number(document.getElementById('export-scale').value),tailwindVersion:document.getElementById('tailwind-version').value};
   }
-
-  function bindButton(id, format) {
-    document.getElementById(id)?.addEventListener('click', () => {
-      triggerExport(format);
+  function init(canvas,palette,names,opts) {
+    getCanvas=canvas;getPalette=palette;getNames=names;getOptions=opts;
+    for(const format of formats) document.getElementById(`btn-export-${format}`).addEventListener('click',()=>trigger(format));
+    document.getElementById('btn-export-main').addEventListener('click',()=>trigger('png'));
+    for(const id of ['export-scale','code-format','tailwind-version']) document.getElementById(id).addEventListener('change',update);
+    document.getElementById('btn-copy-export-code').addEventListener('click',async()=>{
+      if(!getPalette().length) return;
+      try {
+        await ExportEngine.copyText(document.getElementById('export-code').textContent);
+        window.AppToast.show('程式碼已複製');
+      } catch(error) { window.AppToast.show(error.message,'error'); }
     });
+    update();
   }
-
-  function triggerExport(format) {
-    const palette = _getPalette?.() ?? [];
-    if (!palette.length) {
-      window.AppToast?.show('請先生成色票後再匯出', 'warning');
-      return;
-    }
-
-    const canvas  = _getCanvas?.();
-    const names   = _getNames?.() ?? [];
-    const opts    = _getOpts?.() ?? {};
-
-    // 視覺反饋：按鈕旋轉動畫
-    showExportFeedback(format);
-
+  async function trigger(format) {
+    if(busy||!getPalette().length) return;
+    busy=true;update();
     try {
-      ExportEngine.exportAs(format, canvas, palette, names, opts);
-      window.AppToast?.show(`${format.toUpperCase()} 匯出成功 ✓`, 'success');
-    } catch (err) {
-      console.error('[ExportUI]', err);
-      window.AppToast?.show(`匯出失敗：${err.message}`, 'error');
-    }
+      await ExportEngine.exportAs(format,getCanvas(),[...getPalette()],[...getNames()],options());
+      window.AppToast.show(`${format.toUpperCase()} 匯出成功`);
+    } catch(error) { window.AppToast.show(`匯出失敗：${error.message}`,'error'); }
+    finally { busy=false;update(); }
   }
-
-  function showExportFeedback(format) {
-    const btn = document.getElementById(`btn-export-${format}`);
-    if (!btn) return;
-    btn.classList.add('exporting');
-    setTimeout(() => btn.classList.remove('exporting'), 1200);
+  function update() {
+    if(!getPalette) return;
+    const palette=getPalette(),opts=options();
+    const code=document.getElementById('export-code'),format=document.getElementById('code-format').value;
+    code.textContent=palette.length ? ExportEngine.buildCode(format,palette,getNames(),opts.tailwindVersion) : '生成色票後顯示程式碼';
+    for(const id of [...formats.map(f=>`btn-export-${f}`),'btn-export-main','btn-copy-export-code']) document.getElementById(id).disabled=busy||!palette.length;
+    const scene=CanvasRenderer.buildScene(opts.image,palette,opts),scale=opts.exportScale;
+    document.getElementById('export-dimensions').textContent=palette.length?`${Math.round(scene.width*scale)} × ${Math.round(scene.height*scale)} px`:'';
   }
-
-  // 注入按鈕動畫樣式
-  function injectStyles() {
-    if (document.getElementById('export-ui-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'export-ui-styles';
-    style.textContent = `
-      .export-btn.exporting {
-        animation: exportPulse 0.6s var(--ease-spring);
-      }
-      @keyframes exportPulse {
-        0%   { transform: scale(1); }
-        40%  { transform: scale(0.92); }
-        70%  { transform: scale(1.06); }
-        100% { transform: scale(1); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  return {
-    init: (getCanvas, getPalette, getNames, getOpts) => {
-      injectStyles();
-      init(getCanvas, getPalette, getNames, getOpts);
-    },
-  };
-
+  return {init,update};
 })();
-
-window.ExportUI = ExportUI;
+window.ExportUI=ExportUI;

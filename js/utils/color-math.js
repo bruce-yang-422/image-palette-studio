@@ -12,18 +12,24 @@ const ColorMath = (() => {
   // 色彩距離
   // ─────────────────────────────────────────────
 
-  /**
-   * CIE76 ΔE 色差 (RGB 空間近似)
-   * 值 < 3 → 人眼幾乎無法分辨
-   */
+  /** sRGB → CIELAB (D65 reference white), used for perceptual CIE76 distance. */
+  function lab(hex) {
+    const rgb = ColorConvert.hexToRgb(hex);
+    const [r, g, b] = [rgb.r, rgb.g, rgb.b].map(v => {
+      const c = v / 255;
+      return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4;
+    });
+    const f = t => t > (6 / 29) ** 3 ? Math.cbrt(t) : t / (3 * (6 / 29) ** 2) + 4 / 29;
+    const x = f((.4124564*r + .3575761*g + .1804375*b) / .95047);
+    const y = f(.2126729*r + .7151522*g + .0721750*b);
+    const z = f((.0193339*r + .1191920*g + .9503041*b) / 1.08883);
+    return [116*y-16, 500*(x-y), 200*(y-z)];
+  }
+
+  /** CIE76 ΔE in Lab, not RGB channel distance. */
   function deltaE76(hex1, hex2) {
-    const a = ColorConvert.hexToRgb(hex1);
-    const b = ColorConvert.hexToRgb(hex2);
-    return Math.sqrt(
-      Math.pow(a.r - b.r, 2) +
-      Math.pow(a.g - b.g, 2) +
-      Math.pow(a.b - b.b, 2)
-    );
+    const a = lab(hex1), b = lab(hex2);
+    return Math.hypot(...a.map((v, i) => v - b[i]));
   }
 
   /**

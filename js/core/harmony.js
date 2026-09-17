@@ -1,7 +1,7 @@
 /**
  * harmony.js
  * 經典和諧配色模式引擎
- * 實作：類比色 / 互補色 / 分裂互補色 / 三角色
+ * 實作：類比色 / 互補色 / 分裂互補色 / 三角色 / 單色調
  * 依賴：color-convert.js, color-math.js
  */
 
@@ -56,18 +56,14 @@ const HarmonyEngine = (() => {
 
   /**
    * 類比色 Analogous
-   * 以基準色為中心，左右各 ±30°/±60° 擴展
+   * 以基準色為中心，所有色相限制於 ±30°
    * @param {string} baseHex
    * @param {number} count
    * @returns {string[]}
    */
   function analogous(baseHex, count = 5) {
-    const step = 28;
-    const half = Math.floor(count / 2);
-    const offsets = [];
-    for (let i = -half; i <= half; i++) {
-      if (offsets.length < count) offsets.push(i * step);
-    }
+    const offsets = Array.from({ length: count }, (_, i) =>
+      count === 1 ? 0 : -30 + 60 * i / (count - 1));
     const { s, l } = ColorConvert.hexToHsl(baseHex);
     return offsets.map(offset => shiftHue(baseHex, offset, jitterSL(s, l)));
   }
@@ -80,28 +76,7 @@ const HarmonyEngine = (() => {
    * @returns {string[]}
    */
   function complementary(baseHex, count = 5) {
-    const base = ColorConvert.hexToHsl(baseHex);
-    const comp = wrapHue(base.h + 180);
-    const lSteps = [base.l - 12, base.l, base.l + 12];
-    const result = [];
-
-    // 基準色組（深/中/淺）
-    for (const l of lSteps) {
-      if (result.length < count) {
-        const j = jitterSL(base.s, l);
-        result.push(ColorConvert.hslToHex(base.h, j.s, j.l));
-      }
-    }
-    // 互補色組
-    const compLSteps = [comp, comp];
-    for (const l of compLSteps) {
-      if (result.length < count) {
-        const cl = base.l + (Math.random() > 0.5 ? 10 : -10);
-        const j = jitterSL(base.s * 0.9, cl);
-        result.push(ColorConvert.hslToHex(l, j.s, j.l));
-      }
-    }
-    return result.slice(0, count);
+    return hueFamily(baseHex, [0, 180], count);
   }
 
   /**
@@ -112,20 +87,24 @@ const HarmonyEngine = (() => {
    * @returns {string[]}
    */
   function splitComplementary(baseHex, count = 5) {
-    const base = ColorConvert.hexToHsl(baseHex);
-    const compH = wrapHue(base.h + 180);
-    const hues = [
-      base.h,
-      wrapHue(compH - 30),
-      wrapHue(compH + 30),
-      wrapHue(compH - 60),
-      wrapHue(compH + 60),
-    ];
-    const lVariants = [base.l - 8, base.l, base.l + 8, base.l - 15, base.l + 15];
-    return hues.slice(0, count).map((h, i) => {
-      const j = jitterSL(base.s, lVariants[i] ?? base.l);
-      return ColorConvert.hslToHex(h, j.s, j.l);
+    return hueFamily(baseHex, [0, 150, 210], count);
+  }
+
+  // 循環同一組調和色相，以明暗變體補滿，避免多色模式混入無關隨機色。
+  function hueFamily(baseHex, offsets, count) {
+    const { s, l } = ColorConvert.hexToHsl(baseHex);
+    return Array.from({ length: count }, (_, i) => {
+      const level = Math.floor(i / offsets.length);
+      const delta = level === 0 ? 0 : (level % 2 ? -1 : 1) * Math.ceil(level / 2) * 12;
+      return shiftHue(baseHex, offsets[i % offsets.length], jitterSL(s, l + delta));
     });
+  }
+
+  /** 固定色相與飽和度，依明度階梯等距展開。 */
+  function monochromatic(baseHex, count = 5) {
+    const { h, s, l } = ColorConvert.hexToHsl(baseHex);
+    return Array.from({ length: count }, (_, i) =>
+      ColorConvert.hslToHex(h, s, count === 1 ? l : 15 + 75 * i / (count - 1)));
   }
 
   /**
@@ -170,6 +149,7 @@ const HarmonyEngine = (() => {
       case 'complementary':        return complementary(baseHex, count);
       case 'split-complementary':  return splitComplementary(baseHex, count);
       case 'triadic':              return triadic(baseHex, count);
+      case 'monochromatic':        return monochromatic(baseHex, count);
       default:
         console.warn(`[HarmonyEngine] 未知模式 "${mode}"，回退至 analogous`);
         return analogous(baseHex, count);
@@ -204,6 +184,7 @@ const HarmonyEngine = (() => {
     complementary,
     splitComplementary,
     triadic,
+    monochromatic,
   };
 
 })();

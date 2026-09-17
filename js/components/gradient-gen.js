@@ -30,10 +30,11 @@ const GradientGen = (() => {
     });
 
     // 複製 CSS 程式碼
-    copyBtn?.addEventListener('click', () => {
+    copyBtn?.addEventListener('click', async () => {
       const code = gradientCode?.textContent?.trim();
       if (!code || code.startsWith('/*')) return;
-      navigator.clipboard.writeText(code).then(() => {
+      try {
+        await ExportEngine.copyText(code);
         const original = copyBtn.textContent;
         copyBtn.textContent = '✓ 已複製';
         copyBtn.style.color = 'var(--clr-success)';
@@ -41,7 +42,7 @@ const GradientGen = (() => {
           copyBtn.textContent = original;
           copyBtn.style.color = '';
         }, 1500);
-      });
+      } catch(error) { window.AppToast.show(error.message,'error'); }
     });
   }
 
@@ -51,7 +52,11 @@ const GradientGen = (() => {
    */
   function update(palette) {
     _palette = [...palette];
-    if (!palette.length) return;
+    if (!palette.length) {
+      if(gradientBar) gradientBar.style.background='';
+      if(gradientCode) gradientCode.textContent='/* 生成色票後顯示 CSS */';
+      return;
+    }
 
     const css = buildGradientCss(palette, _type);
 
