@@ -18,20 +18,20 @@ test('light/dark/system themes persist and react to OS changes without changing 
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
   expect(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(245, 246, 251)');
   const palette = await page.evaluate(()=>AppState.palette);
-  await page.locator('#theme-select').selectOption('dark');
+  await choose(page, 'theme-pref', 'dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   expect(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(11, 12, 16)');
   expect(await page.evaluate(()=>AppState.palette)).toEqual(palette);
   await page.reload();
-  await expect(page.locator('#theme-select')).toHaveValue('dark');
+  await expect(page.locator('input[name="theme-pref"][value="dark"]')).toBeChecked();
   await page.emulateMedia({ colorScheme:'light' });
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-  await page.locator('#theme-select').selectOption('system');
+  await choose(page, 'theme-pref', 'system');
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
   await page.emulateMedia({ colorScheme:'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.reload();
-  await expect(page.locator('#theme-select')).toHaveValue('system');
+  await expect(page.locator('input[name="theme-pref"][value="system"]')).toBeChecked();
   await page.emulateMedia({ colorScheme:'light' });
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
 });
@@ -39,7 +39,7 @@ test('light/dark/system themes persist and react to OS changes without changing 
 test('theme still works when local storage is unavailable', async ({ page }) => {
   await page.addInitScript(()=>{ Storage.prototype.getItem=()=>{throw new Error('blocked');}; Storage.prototype.setItem=()=>{throw new Error('blocked');}; });
   await page.goto('./');
-  await page.locator('#theme-select').selectOption('dark');
+  await choose(page, 'theme-pref', 'dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await expect(page.locator('.swatch-item')).toHaveCount(5);
 });
@@ -104,7 +104,7 @@ test('pins update a matching slot live, preserve coordinates on resizing, and re
   expect(await page.evaluate(()=>AppState.palette[0])).toBe('#cc3322');
   await page.locator('#panel-center').evaluate(el=>{el.scrollTop=0;});
   await page.screenshot({path:'test-results/desktop-light.png',animations:'disabled'});
-  await page.locator('#theme-select').selectOption('dark');
+  await choose(page, 'theme-pref', 'dark');
   await page.screenshot({path:'test-results/desktop-dark.png',animations:'disabled'});
 });
 

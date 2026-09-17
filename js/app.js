@@ -47,6 +47,8 @@ const AppState = {
   basePalette: [],      // 未投影色票，切換風格時可還原
   locked: [],           // boolean[] — 對應鎖定狀態
   pins: [],            // 原圖座標（0~1）與原始取樣色
+  seenPinHexes: new Set(), // 本次圖片已顯示過的代表色，重新生成時優先避開
+  extractionPool: [],  // 本次圖片提取出的完整候選色池（不限於目前顯示的色票）
   selectedSlot: 0,
 
   /** 錨點色（憑空生成時的種子色） */
@@ -121,6 +123,8 @@ const $btnEyedropper  = document.getElementById('btn-eyedropper');
 const $samplerStatus  = document.getElementById('sampler-status');
 const $samplerCount   = document.getElementById('sampler-count-text');
 const $btnSamplerDone = document.getElementById('btn-sampler-done');
+const $styleSection  = document.getElementById('section-style');
+const $styleDivider  = document.getElementById('style-divider');
 
 // ─────────────────────────────────────────────
 // 初始化
@@ -189,6 +193,8 @@ function initComponents() {
       AppState.palette = []; AppState.basePalette = []; AppState.locked = []; AppState.pins = [];
       AppState.selectedSlot = 0;
     }
+    AppState.seenPinHexes = new Set();
+    AppState.extractionPool = [];
     AppState.image = img;
     ImagePins.setImage(img);
     AppState.options.cropOffset = { x: 0, y: 0 };
@@ -205,6 +211,8 @@ function initComponents() {
     AppState.image   = null;
     modeSessions.image = null;
     AppState.pins = [];
+    AppState.seenPinHexes = new Set();
+    AppState.extractionPool = [];
     ImagePins.setImage(null);
     ImagePins.sync();
     if (AppState.options.genSource !== 'image') return;
@@ -386,6 +394,18 @@ function initGenSourceControls() {
       document.querySelectorAll('.style-chip').forEach(chip => {
         chip.classList.toggle('active', chip.contains(e.target));
       });
+      // Picking a named style should visibly apply it right away; the
+      // raw/remap toggle stays available afterwards to compare back to the
+      // untouched photo colors without losing the chosen style.
+      if (AppState.options.genSource === 'image' && e.target.value !== 'none' && AppState.options.imgPostprocess !== 'remap') {
+        AppState.options.imgPostprocess = 'remap';
+        const remapRadio = document.querySelector('input[name="img-postprocess"][value="remap"]');
+        if (remapRadio) {
+          remapRadio.checked = true;
+          updateChipActiveInGroup(remapRadio, 'img-postprocess');
+        }
+        updateModeDescription();
+      }
       if (AppState.palette.length) applyStyleAndRedraw();
       else generatePalette();
     });
@@ -752,6 +772,16 @@ function initColorSampler() {
 // ─────────────────────────────────────────────
 
 function initKeyboardShortcuts() {
+  // Clicking/tapping a chip (radio or checkbox) leaves focus on that <input>,
+  // which the shortcut below deliberately ignores — blur it after a pointer
+  // selection so Space/R keep working right after picking a style, count, etc.
+  // Only pointer-driven selection is blurred; keyboard radio-group navigation
+  // (Tab + Arrow keys + Space) still keeps focus as expected.
+  document.addEventListener('pointerup', e => {
+    const chip = e.target.closest('input[type="radio"], input[type="checkbox"]');
+    if (chip) requestAnimationFrame(() => chip.blur());
+  });
+
   document.addEventListener('keydown', e => {
     const active = document.activeElement;
     if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey ||
@@ -798,15 +828,20 @@ async function generatePalette(preserveLocked = true, preserveSamples = false) {
         return;
       }
       setLoading(true);
-      const candidates = await ExtractionEngine.extractSamples(AppState.image, swatchCount);
+      const candidates = await ExtractionEngine.extractSamples(AppState.image, swatchCount, [...AppState.seenPinHexes]);
       if (version !== generationVersion) return;
+      AppState.extractionPool = candidates.pool || [];
       const previous = AppState.pins;
       const kept = previous.slice(0, swatchCount).filter((_, i) => preserveSamples || (preserveLocked && AppState.locked[i]));
       const used = [...kept];
       AppState.pins = Array.from({length:swatchCount}, (_, i) => {
-        if (previous[i] && (preserveSamples || (preserveLocked && AppState.locked[i]))) return previous[i];
+        if (previous[i] && (preserveSamples || (preserveLocked && AppState.locked[i]))) {
+          AppState.seenPinHexes.add(previous[i].hex);
+          return previous[i];
+        }
         const candidate = candidates.find(p => !used.some(c => Math.hypot(c.x-p.x,c.y-p.y)<.01)) || candidates[i];
         used.push(candidate);
+        AppState.seenPinHexes.add(candidate.hex);
         return { ...candidate, hex:ImagePins.sample(candidate) || candidate.hex };
       });
       basePalette = AppState.pins.map(p => p.hex);
@@ -900,8 +935,17 @@ function applyStyleAndRedraw() {
 /** Project the original palette, then merge exact user colors and locked slots. */
 function composePalette(basePalette, preserveLocked = true) {
   const { genSource, imgPostprocess, stylePreset } = AppState.options;
+  // Pass the real displayed locked colors (not the stale pre-lock base value) so a
+  // style's random accent/pop slot can echo the locked hue instead of inventing one.
+  const lockedHexes = preserveLocked
+    ? basePalette.map((_, i) => (AppState.locked[i] && AppState.palette[i]) || null)
+    : [];
+  // No lock? In image mode a random accent/pop slot echoes a real photo color instead.
+  const naturalAccentHex = genSource === 'image' && !lockedHexes.some(Boolean)
+    ? StyleEngine.findNaturalAccentHex(stylePreset, AppState.extractionPool.map(p => p.hex))
+    : null;
   const projected = genSource === 'scratch' || imgPostprocess === 'remap'
-    ? StyleEngine.projectPalette(basePalette, stylePreset) : [...basePalette];
+    ? StyleEngine.projectPalette(basePalette, stylePreset, lockedHexes, naturalAccentHex) : [...basePalette];
   let anchorIndex = 0;
   return projected.map((hex, i) => {
     if (preserveLocked && AppState.locked[i] && AppState.palette[i]) return AppState.palette[i];
@@ -951,7 +995,52 @@ function redraw() {
   ColorSampler.syncOverlay?.();
 }
 
+/** 風格色彩只在「憑空生成」或「圖片提取 + 風格投影」時才會真正套用，其餘情況隱藏以免誤會。 */
+function updateStyleSectionVisibility() {
+  if (!$styleSection) return;
+  const { genSource, imgPostprocess } = AppState.options;
+  const shouldHide = genSource === 'image' && imgPostprocess !== 'remap';
+  $styleSection.hidden = shouldHide;
+  if ($styleDivider) $styleDivider.hidden = shouldHide;
+}
+
+const styleChipOriginalTitles = new WeakMap();
+
+/**
+ * 圖片提取模式下，色票必須全部源自照片。含隨機跳色／輔色的風格（森林系、海洋系、
+ * 礦石系、薄荷曼波）只有在這張照片本身就含有落在該輔色色相範圍內的顏色時才開放
+ * ——輔色會改用那個真實顏色，不再憑空生成；找不到就停用並灰顯，因照片而異。
+ */
+function updateStyleAvailability() {
+  const isImage = AppState.options.genSource === 'image';
+  const poolHexes = AppState.extractionPool.map(p => p.hex);
+  let currentDisallowed = false;
+  document.querySelectorAll('.style-chip[data-style]').forEach(chip => {
+    const input = chip.querySelector('input[name="style-preset"]');
+    if (!input) return;
+    if (!styleChipOriginalTitles.has(chip)) styleChipOriginalTitles.set(chip, chip.title);
+    const disallowed = isImage && !StyleEngine.isAvailableForPhoto(chip.dataset.style, poolHexes);
+    input.disabled = disallowed;
+    chip.classList.toggle('is-disabled', disallowed);
+    chip.title = disallowed
+      ? '這張照片沒有接近此風格重點色的顏色，圖片模式下暫不可用'
+      : styleChipOriginalTitles.get(chip);
+    if (disallowed && input.checked) currentDisallowed = true;
+  });
+  if (currentDisallowed) {
+    AppState.options.stylePreset = 'none';
+    const noneRadio = document.querySelector('input[name="style-preset"][value="none"]');
+    if (noneRadio) {
+      noneRadio.checked = true;
+      document.querySelectorAll('.style-chip').forEach(chip => chip.classList.toggle('active', chip.contains(noneRadio)));
+    }
+    if (AppState.palette.length) applyStyleAndRedraw();
+  }
+}
+
 function updateModeDescription() {
+  updateStyleSectionVisibility();
+  updateStyleAvailability();
   if (!$genModeDesc) return;
   const { genSource, imgPostprocess, genAlgo } = AppState.options;
   let key;

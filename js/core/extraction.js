@@ -14,7 +14,9 @@ const ExtractionEngine = (() => {
   }
 
   // Role candidates are drawn from the photo, including its lightest/darkest pixels.
-  function chooseSamples(pixels, count, minDelta = 12) {
+  // `avoid` lists hexes already shown for the current image, so repeated calls
+  // (regenerate) surface new representative colors instead of the same fixed set.
+  function chooseSamples(pixels, count, minDelta = 12, avoid = []) {
     if (!pixels.length) throw new Error('圖片沒有可取樣的不透明像素');
     const centers = ColorMath.kMeans(pixels, Math.min(count * 4, 32, pixels.length));
     const candidates = centers.map(center => {
@@ -51,17 +53,24 @@ const ExtractionEngine = (() => {
       const hex = ColorConvert.rgbToHex(extreme.r,extreme.g,extreme.b);
       if (!pool.some(p=>p.hex===hex)) pool.push(decorate({...extreme,weight:1}));
     }
+    const isFresh = p => !avoid.includes(p.hex);
+    // Prefer a candidate not already shown; fall back to the usual best when none remain.
+    const bestBy = (list, better) => {
+      const fresh = list.filter(isFresh);
+      return (fresh.length ? fresh : list).reduce(better);
+    };
     const selected = [];
     const add = (p, role) => {
       if (selected.length < count && !selected.some(c => ColorMath.deltaE76(c.hex, p.hex) < minDelta)) {
         selected.push({ ...p, role });
       }
     };
-    add(pool.reduce((a, b) => a.l < b.l ? a : b), 'shadow');
-    add(pool.reduce((a, b) => a.l > b.l ? a : b), 'highlight');
-    add(pool.reduce((a, b) => a.s > b.s ? a : b), 'vibrant');
+    add(bestBy(pool, (a, b) => a.l < b.l ? a : b), 'shadow');
+    add(bestBy(pool, (a, b) => a.l > b.l ? a : b), 'highlight');
+    add(bestBy(pool, (a, b) => a.s > b.s ? a : b), 'vibrant');
     const midtones = pool.filter(p => p.l >= 20 && p.l <= 85);
-    if (midtones.length) add(midtones.reduce((a, b) => a.s < b.s ? a : b), 'neutral');
+    if (midtones.length) add(bestBy(midtones, (a, b) => a.s < b.s ? a : b), 'neutral');
+    for (const p of pool.filter(isFresh)) add(p, 'representative');
     for (const p of pool) add(p, 'representative');
     // Relax the threshold for low-diversity photos, never invent unrelated colors.
     for (const p of pool) {
@@ -76,10 +85,14 @@ const ExtractionEngine = (() => {
       const alternate = same.reduce((best,pixel)=>!best || separation(pixel)>separation(best) ? pixel : best, null);
       selected.push({ ...p, ...(alternate || {}), role: 'repeated' });
     }
+    // Expose the broader candidate pool (beyond the `count` picked here) so callers
+    // can check whether the photo naturally contains a color a style would need,
+    // instead of only ever seeing the final trimmed-down selection.
+    selected.pool = pool;
     return selected;
   }
 
-  async function extractSamples(source, count = 5) {
+  async function extractSamples(source, count = 5, avoid = []) {
     const canvas = document.createElement('canvas');
     const w = source.naturalWidth || source.width, h = source.naturalHeight || source.height;
     const scale = Math.min(1, 300 / Math.max(w, h));
@@ -89,7 +102,7 @@ const ExtractionEngine = (() => {
     ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
     let pixels = samplePixels(ctx.getImageData(0, 0, canvas.width, canvas.height));
     if (!pixels.length) pixels = samplePixels(ctx.getImageData(0, 0, canvas.width, canvas.height), 1);
-    return chooseSamples(pixels, count);
+    return chooseSamples(pixels, count, 12, avoid);
   }
 
   async function extractFromElement(source, count = 5) {

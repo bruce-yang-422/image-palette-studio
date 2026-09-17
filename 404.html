@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>404 找不到頁面 / Page Not Found — Image Palette Studio</title>
+  <meta name="theme-color" content="#0b0c10" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --clr-bg-base: #0b0c10;
+      --clr-bg-elevated: #1a1d25;
+      --clr-border: rgba(255,255,255,0.08);
+      --clr-text-primary: #f0f2f8;
+      --clr-text-secondary: #8b92a8;
+      --clr-accent-a: #7c5cbf;
+      --clr-accent-b: #4d9de0;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        color-scheme: light;
+        --clr-bg-base: #f5f6fb;
+        --clr-bg-elevated: #ffffff;
+        --clr-border: rgba(20,20,31,0.1);
+        --clr-text-primary: #14141f;
+        --clr-text-secondary: #565b70;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--clr-bg-base);
+      color: var(--clr-text-primary);
+    }
+    main {
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      background: var(--clr-bg-elevated);
+      border: 1px solid var(--clr-border);
+      border-radius: 16px;
+      padding: 40px 28px;
+    }
+    .code {
+      margin: 0;
+      font-size: 64px;
+      font-weight: 700;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--clr-accent-a), var(--clr-accent-b));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    h1 {
+      margin: 16px 0 8px;
+      font-size: 18px;
+    }
+    p {
+      margin: 0 0 24px;
+      color: var(--clr-text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    a.home {
+      display: inline-block;
+      padding: 10px 24px;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, var(--clr-accent-a), var(--clr-accent-b));
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    a.home:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="code">404</p>
+    <h1>找不到頁面 / Page Not Found</h1>
+    <p>
+      這個網址不存在或已經移動。<br />
+      This page doesn't exist or has moved.
+    </p>
+    <a class="home" href="./">回到 Image Palette Studio 首頁 / Back to home</a>
+  </main>
+</body>
+</html>

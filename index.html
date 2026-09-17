@@ -93,11 +93,29 @@
 
       <!-- Header Actions -->
       <nav class="header-actions" role="navigation" aria-label="工具列">
-        <select id="theme-select" class="theme-select" aria-label="介面主題">
-          <option value="light">淺色</option>
-          <option value="dark">暗色</option>
-          <option value="system">跟隨系統</option>
-        </select>
+        <div id="theme-switch" class="theme-switch" role="radiogroup" aria-label="介面主題">
+          <span class="theme-switch-thumb" aria-hidden="true"></span>
+          <label class="theme-switch-option" title="淺色">
+            <input type="radio" name="theme-pref" value="light" aria-label="淺色" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+            </svg>
+          </label>
+          <label class="theme-switch-option" title="暗色">
+            <input type="radio" name="theme-pref" value="dark" aria-label="暗色" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
+            </svg>
+          </label>
+          <label class="theme-switch-option" title="跟隨系統">
+            <input type="radio" name="theme-pref" value="system" aria-label="跟隨系統" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="12" rx="2"/>
+              <path d="M8 20h8M12 16v4"/>
+            </svg>
+          </label>
+        </div>
         <button id="btn-install" class="header-btn" hidden aria-label="安裝圖片色票工作室">安裝</button>
         <span id="offline-status" class="offline-status" role="status" aria-live="polite"></span>
         <!-- 色盲模擬快捷選單 -->
@@ -403,7 +421,7 @@
 
       </section>
 
-      <div class="panel-divider" aria-hidden="true"></div>
+      <div id="style-divider" class="panel-divider" aria-hidden="true"></div>
 
       <!-- 5. 風格色彩 -->
       <section id="section-style" class="panel-section" aria-labelledby="style-heading">

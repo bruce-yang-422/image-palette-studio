@@ -294,6 +294,73 @@ body::after {
   transform: translateY(0);
 }
 
+/* Theme switch — sliding pill / floating thumb */
+.theme-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: var(--clr-bg-elevated);
+  border: 1px solid var(--clr-border);
+}
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  bottom: 3px;
+  width: 0;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--clr-accent-a), var(--clr-accent-b));
+  box-shadow: 0 2px 10px var(--clr-accent-glow);
+  transition: transform var(--dur-base) var(--ease-spring), width var(--dur-base) var(--ease-spring);
+  will-change: transform, width;
+}
+
+.theme-switch-option {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  padding: 7px 0;
+  border-radius: var(--radius-full);
+  color: var(--clr-text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-base) var(--ease-out);
+}
+
+.theme-switch-option svg {
+  flex-shrink: 0;
+}
+
+.theme-switch-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.theme-switch-option.is-active {
+  color: #fff;
+}
+
+.theme-switch-option:focus-within {
+  outline: 2px solid var(--clr-accent-mid);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-thumb { transition: none; }
+}
+
 /* Dropdown menu */
 .dropdown-menu {
   position: absolute;
@@ -680,6 +747,35 @@ body::after {
 .style-chip.active .style-name,
 .style-chip:has(input:checked) .style-name {
   color: var(--clr-text-secondary);
+}
+
+/* 圖片提取模式下，含隨機跳色的風格無法保證色票全部來自照片，停用並灰顯 */
+.style-chip.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.style-chip.is-disabled:hover {
+  border-color: var(--clr-border);
+  background: var(--clr-bg-overlay);
+  transform: none;
+}
+
+.style-chip.is-disabled:hover .style-dot {
+  transform: none;
+}
+
+.style-chip.is-disabled::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--clr-error);
+  background: linear-gradient(45deg, transparent 46%, var(--clr-error) 48%, var(--clr-error) 52%, transparent 54%);
+  background-color: var(--clr-bg-overlay);
 }
 
 /* ----------------------------------------------------------------
