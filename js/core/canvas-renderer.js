@@ -112,7 +112,7 @@ const CanvasRenderer = (() => {
         } else if (pin?.external) suffix='（外部色）';
         swatch(hex,i,x-d/2,y-d/2,d,d,true);
         text((opts.calloutLabels?.[i] || ColorMath.approximateName(hex))+suffix,
-          x+d/2+12,y,Math.max(1,width-x-d/2-30),'#211d18',24,{align:'left',font:'"Comic Sans MS", cursive'});
+          x+d/2+12,y,Math.max(1,width-x-d/2-30),'#211d18',24,{align:'left',font:'"Microsoft JhengHei", "PingFang TC", "Heiti TC", sans-serif'});
       });
     }
     return scene;

@@ -85,10 +85,6 @@ const ExtractionEngine = (() => {
       const alternate = same.reduce((best,pixel)=>!best || separation(pixel)>separation(best) ? pixel : best, null);
       selected.push({ ...p, ...(alternate || {}), role: 'repeated' });
     }
-    // Expose the broader candidate pool (beyond the `count` picked here) so callers
-    // can check whether the photo naturally contains a color a style would need,
-    // instead of only ever seeing the final trimmed-down selection.
-    selected.pool = pool;
     return selected;
   }
 

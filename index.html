@@ -321,7 +321,7 @@
         <div id="gen-image-opts" class="gen-sub-panel" hidden role="group" aria-label="圖片提取選項">
           <p class="gen-info-text">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            K-means++ 從圖片提取最具代表性的色彩，可搭配下方風格投影
+            K-means++ 從圖片提取最具代表性的色彩，色票保留原始照片色調
           </p>
 
           <!-- 手動取色工具 -->
@@ -342,18 +342,6 @@
               </div>
             </div>
             <p class="sampler-tip">拖曳編號錨點即時取色；方向鍵微調，Shift 加速。右側編號對應相同色槽。</p>
-          </div>
-          <!-- 提取後處理 -->
-          <label class="sub-label">提取後套用</label>
-          <div class="chip-group chip-group-sm" role="radiogroup" aria-label="提取後處理方式">
-            <label class="chip active" title="保留原始提取色彩">
-              <input type="radio" name="img-postprocess" value="raw" checked aria-label="原始色彩" />
-              <span>原始色彩</span>
-            </label>
-            <label class="chip" title="提取後強制投影至所選風格（Image Remap）">
-              <input type="radio" name="img-postprocess" value="remap" aria-label="風格投影 Image Remap" />
-              <span>風格投影</span>
-            </label>
           </div>
         </div>
 

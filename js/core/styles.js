@@ -85,8 +85,6 @@ const StyleEngine = (() => {
       sMin: 38, sMax: 70,
       lMin: 62, lMax: 90,
       accentHue: [45, 15],   // 輔色：鵝黃 & 裸粉的 [hue, ratio]
-      accentHueWindows: [[37, 53], [10, 26]], // 鵝黃／裸粉的可接受色相範圍
-      randomAccent: true,    // 跳色色相／飽和度為隨機生成，非取自來源色
       description: '清透薄荷綠為核心，搭配低彩度跳色',
     },
 
@@ -109,7 +107,6 @@ const StyleEngine = (() => {
       sMin: 20, sMax: 65,
       lMin: 22, lMax: 68,
       secondaryHue: { hMin: 25, hMax: 38, sMin: 25, sMax: 45 }, // 樹皮棕輔色
-      randomAccent: true,    // 輔色色相／飽和度為隨機生成，非取自來源色
       description: '鼠尾草綠、苔蘚綠、深林墨綠，輔以樹皮棕與清晨霧灰',
     },
 
@@ -120,7 +117,6 @@ const StyleEngine = (() => {
       sMin: 28, sMax: 75,
       lMin: 25, lMax: 82,
       secondaryHue: { hMin: 35, hMax: 55, sMin: 15, sMax: 35 }, // 亞麻裸色輔色
-      randomAccent: true,    // 輔色色相／飽和度為隨機生成，非取自來源色
       description: '海水藍、深海靛、浪花白，輔以亞麻裸色與海軍藍',
     },
 
@@ -131,7 +127,6 @@ const StyleEngine = (() => {
       sMin: 38, sMax: 68,
       lMin: 35, lMax: 62,
       secondaryHue: { hMin: 198, hMax: 222, sMin: 5, sMax: 15 }, // 板岩冷灰
-      randomAccent: true,    // 輔色色相／飽和度為隨機生成，非取自來源色
       description: '赤陶土色、板岩冷灰、未加工玄武岩層次',
     },
   };
@@ -208,44 +203,14 @@ const StyleEngine = (() => {
    * @param {string[]} hexList
    * @param {string} styleKey
    * @param {(string|null)[]} lockedList 對應索引若為 HEX 表示該色票已鎖定（不投影，並作為隨機跳色/輔色的呼應來源）
-   * @param {string|null} fallbackAccentHex 無鎖定色時，隨機跳色/輔色改呼應此色（例如來自照片本身的候選色）
    * @returns {string[]}
    */
-  function projectPalette(hexList, styleKey, lockedList = [], fallbackAccentHex = null) {
-    const accentHex = lockedList.find(Boolean) ?? fallbackAccentHex ?? null;
+  function projectPalette(hexList, styleKey, lockedList = []) {
+    const accentHex = lockedList.find(Boolean) ?? null;
     return hexList.map((hex, i) => {
       if (lockedList[i]) return hex;  // 鎖定的色票不被投影
       return projectColor(hex, styleKey, i, hexList.length, accentHex);
     });
-  }
-
-  /**
-   * 該風格「隨機跳色／輔色」允許的色相範圍（僅 randomAccent 風格才有意義）
-   * @param {string} styleKey
-   * @returns {[number, number][]}
-   */
-  function accentHueRanges(styleKey) {
-    const preset = STYLE_PRESETS[styleKey];
-    if (!preset?.randomAccent) return [];
-    if (preset.secondaryHue) return [[preset.secondaryHue.hMin, preset.secondaryHue.hMax]];
-    if (preset.accentHueWindows) return preset.accentHueWindows;
-    return [];
-  }
-
-  /**
-   * 從候選色（例如照片萃取出的候選池）中找出色相落在該風格輔色範圍內的顏色，
-   * 讓隨機跳色／輔色改用照片裡真實存在的顏色，而非憑空生成。
-   * @param {string} styleKey
-   * @param {string[]} poolHexes
-   * @returns {string|null}
-   */
-  function findNaturalAccentHex(styleKey, poolHexes = []) {
-    const ranges = accentHueRanges(styleKey);
-    if (!ranges.length) return null;
-    return poolHexes.find(hex => {
-      const { h } = ColorConvert.hexToHsl(hex);
-      return ranges.some(([min, max]) => h >= min && h <= max);
-    }) ?? null;
   }
 
   /**
@@ -298,7 +263,6 @@ const StyleEngine = (() => {
     projectPalette,
     randomInStyle,
     generateStylePalette,
-    findNaturalAccentHex,
 
     /** 取得所有風格鍵值列表 */
     getStyleKeys: () => Object.keys(STYLE_PRESETS),
@@ -308,18 +272,6 @@ const StyleEngine = (() => {
 
     /** 取得指定風格的描述 */
     getDescription: (key) => STYLE_PRESETS[key]?.description ?? '',
-
-    /** 該風格是否每個色票都能保證源自輸入色彩（無隨機捏造的跳色/輔色） */
-    isPhotoSafe: (key) => !STYLE_PRESETS[key]?.randomAccent,
-
-    /**
-     * 圖片模式下該風格是否可用：本身不含隨機跳色／輔色，或候選色池裡已經有
-     * 顏色落在該風格輔色的色相範圍內（此時輔色會改用照片裡的真實顏色）。
-     * @param {string} key
-     * @param {string[]} poolHexes 照片候選色池（不限於目前顯示的色票）
-     */
-    isAvailableForPhoto: (key, poolHexes = []) =>
-      !STYLE_PRESETS[key]?.randomAccent || findNaturalAccentHex(key, poolHexes) != null,
   };
 
 })();

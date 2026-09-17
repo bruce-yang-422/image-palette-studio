@@ -80,19 +80,26 @@ test('generation preserves locked slots and exact anchors across all algorithms,
   }
 });
 
-test('style changes restore the original source palette', () => {
+test('style changes restore the original source palette; image mode never applies a style', () => {
   const scope = context(true);
   vm.runInContext(`
     updateAllUI = () => {};
     AppState.basePalette = ['#fe2200', '#2277ff', '#ffbb11'];
     AppState.palette = [...AppState.basePalette];
-    AppState.options.genSource = 'image';
-    AppState.options.imgPostprocess = 'remap';
+    AppState.options.genSource = 'scratch';
     AppState.options.stylePreset = 'morandi';
     applyStyleAndRedraw();
   `, scope);
   assert.notEqual(vm.runInContext('AppState.palette[0]', scope), '#fe2200');
-  vm.runInContext(`AppState.options.imgPostprocess = 'raw'; applyStyleAndRedraw();`, scope);
+  vm.runInContext(`AppState.options.stylePreset = 'none'; applyStyleAndRedraw();`, scope);
+  assert.deepEqual(Array.from(vm.runInContext('AppState.palette', scope)), ['#fe2200', '#2277ff', '#ffbb11']);
+
+  // Image extraction always keeps true photo colors, regardless of stylePreset.
+  vm.runInContext(`
+    AppState.options.genSource = 'image';
+    AppState.options.stylePreset = 'morandi';
+    applyStyleAndRedraw();
+  `, scope);
   assert.deepEqual(Array.from(vm.runInContext('AppState.palette', scope)), ['#fe2200', '#2277ff', '#ffbb11']);
 });
 

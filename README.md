@@ -9,8 +9,8 @@ A browser-based palette tool built with vanilla HTML, CSS, and JavaScript for im
 ## 功能 / Features
 
 - 圖片上傳、拖曳與貼上，以及 K-means++ 色彩提取 / Image upload, drag-and-drop, paste, and K-means++ extraction.
-- 隨機與五種調和配色（含單色調）、HEX／RGB／HSL 主色輸入、風格預設及持續保留色票鎖定 / Random and five harmony modes, manual seed colors, styles, and persistent locks during regeneration.
-- 圖片提取套用風格時，僅開放能保證色票全數來自照片的風格；鎖定色存在時，風格自帶的重點色／跳色會呼應鎖定色相而非隨機生成 / Image-mode styles are limited to ones that keep every swatch photo-derived; when a swatch is locked, a style's built-in accent hue echoes it instead of being randomized.
+- 隨機與五種調和配色（含單色調）、HEX／RGB／HSL 主色輸入、風格預設及持續保留色票鎖定；憑空生成時有鎖定色，風格自帶的重點色／跳色會呼應鎖定色相而非隨機生成 / Random and five harmony modes, manual seed colors, styles, and persistent locks during regeneration; when a swatch is locked, a style's built-in accent hue echoes it instead of being randomized.
+- 圖片提取的色票一律保留照片原始色調，不套用風格 / Image-extracted swatches always keep the photo's true colors — no style projection is applied.
 - 原圖編號錨點、滑鼠／觸控拖曳即時取色、放大鏡、平均取樣與螢幕滴管 / Numbered image sample pins, live mouse/touch sampling, loupe, averaging, and screen eyedropper.
 - 淺色／暗色／跟隨系統主題，圖示式滑動 Pill 切換並記憶偏好 / Light, dark, and system theme icons with a sliding-pill switch and saved preference.
 - 七款版型縮圖畫廊、可調色票佔比與引線標籤編輯，以及色盲模擬 / Seven-preset layout gallery with live thumbnails, adjustable swatch ratio, callout label editing, and color blindness simulation.
@@ -49,7 +49,7 @@ The app uses system font fallbacks and no third-party runtime resources. After t
 - 支援 EyeDropper API 的瀏覽器可用「螢幕滴管」覆寫目前選取槽位。外部取色不提供圖片座標，因此保留原錨點位置並標示外部色；再次拖曳即回到照片取樣。不支援時，仍可使用照片取色。
 - 增減 3／4／5／6／8 色時，保留尚存在的錨點與鎖定槽。切换兩種工作模式會各自保留本次工作階段的色票、鎖定與畫布設定；重新整理仍會清空。
 - 圖片提取以 K-means 候選色與 CIELAB ΔE 選擇亮部、暗部、鮮豔色及中性色；重新生成時會避開已顯示過的顏色，逐步探索照片其他代表色。低色彩照片可能出現重複色，不會以照片以外的隨機色補足。
-- 「提取後套用」預設為「原始色彩」，完全保留照片色調；切換至「風格投影」才會顯示並套用「風格色彩」面板。森林系、海洋系、礦石系、薄荷曼波含隨機跳色／輔色，無法保證色票全數來自照片，圖片模式下會灰顯並標示禁止圖示，僅憑空生成模式可用。
+- 圖片提取模式沒有風格套用選項，色票一律是照片本身的顏色；「風格色彩」面板只在「憑空生成」模式顯示。
 - 頂部提供淺色／暗色／跟隨系統三個圖示，滑動 Pill 切換。預設淺色；跟隨系統會即時同步作業系統變更，選擇可於重新開啟後保留。介面主題不改變色票與匯出內容。
 
 ## 測試與發布 / Test and deploy

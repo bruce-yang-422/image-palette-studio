@@ -48,7 +48,6 @@ const AppState = {
   locked: [],           // boolean[] — 對應鎖定狀態
   pins: [],            // 原圖座標（0~1）與原始取樣色
   seenPinHexes: new Set(), // 本次圖片已顯示過的代表色，重新生成時優先避開
-  extractionPool: [],  // 本次圖片提取出的完整候選色池（不限於目前顯示的色票）
   selectedSlot: 0,
 
   /** 錨點色（憑空生成時的種子色） */
@@ -60,7 +59,6 @@ const AppState = {
   options: {
     // 頂層模式
     genSource:     'scratch',  // 'image' | 'scratch'
-    imgPostprocess:'raw',      // 'raw' | 'remap'
     genAlgo:       'harmony',  // 'chaos' | 'harmony'
     harmonyType:   'analogous',
 
@@ -91,8 +89,7 @@ const AppState = {
 // ─────────────────────────────────────────────
 
 const MODE_DESCRIPTIONS = {
-  'image-raw':    'K-means++ 從圖片提取代表色，保留原始色調',
-  'image-remap':  'K-means++ 從圖片提取色彩，再強制投影至所選風格（Image Remap）',
+  'image':        'K-means++ 從圖片提取代表色，色票保留原始照片色調，不套用風格',
   'chaos':        '全色彩空間隨機取樣，附安全亮度邊界保護；鎖定色票後重生成可保留主色',
   'chaos-anchor': '在錨點色附近進行 Chaos 隨機展開，未鎖定的空位以差異色補齊',
   'harmony':      '以錨點色（或隨機基準色）展開和諧配色——類比/互補/分裂互補/三角色/單色調',
@@ -194,7 +191,6 @@ function initComponents() {
       AppState.selectedSlot = 0;
     }
     AppState.seenPinHexes = new Set();
-    AppState.extractionPool = [];
     AppState.image = img;
     ImagePins.setImage(img);
     AppState.options.cropOffset = { x: 0, y: 0 };
@@ -212,7 +208,6 @@ function initComponents() {
     modeSessions.image = null;
     AppState.pins = [];
     AppState.seenPinHexes = new Set();
-    AppState.extractionPool = [];
     ImagePins.setImage(null);
     ImagePins.sync();
     if (AppState.options.genSource !== 'image') return;
@@ -260,7 +255,7 @@ function selectSlot(index) {
 function syncOptionControls() {
   const groups = { 'gen-algo':'genAlgo', 'swatch-count':'swatchCount', 'style-preset':'stylePreset',
     'aspect-ratio':'aspectRatio', 'fit-mode':'fitMode', 'swatch-layout':'swatchLayout',
-    'img-postprocess':'imgPostprocess', 'hex-label':'hexLabel' };
+    'hex-label':'hexLabel' };
   for (const [name,key] of Object.entries(groups)) {
     document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
       radio.checked = radio.value === String(AppState.options[key]);
@@ -340,17 +335,6 @@ function initGenSourceControls() {
     });
   });
 
-  // 圖片提取後處理
-  document.querySelectorAll('input[name="img-postprocess"]').forEach(radio => {
-    radio.addEventListener('change', e => {
-      if (!e.target.checked) return;
-      AppState.options.imgPostprocess = e.target.value;
-      updateChipActiveInGroup(e.target, 'img-postprocess');
-      updateModeDescription();
-      if (AppState.palette.length) applyStyleAndRedraw();
-    });
-  });
-
   // 畫布比例
   document.querySelectorAll('input[name="aspect-ratio"]').forEach(radio => {
     radio.addEventListener('change', e => {
@@ -394,18 +378,6 @@ function initGenSourceControls() {
       document.querySelectorAll('.style-chip').forEach(chip => {
         chip.classList.toggle('active', chip.contains(e.target));
       });
-      // Picking a named style should visibly apply it right away; the
-      // raw/remap toggle stays available afterwards to compare back to the
-      // untouched photo colors without losing the chosen style.
-      if (AppState.options.genSource === 'image' && e.target.value !== 'none' && AppState.options.imgPostprocess !== 'remap') {
-        AppState.options.imgPostprocess = 'remap';
-        const remapRadio = document.querySelector('input[name="img-postprocess"][value="remap"]');
-        if (remapRadio) {
-          remapRadio.checked = true;
-          updateChipActiveInGroup(remapRadio, 'img-postprocess');
-        }
-        updateModeDescription();
-      }
       if (AppState.palette.length) applyStyleAndRedraw();
       else generatePalette();
     });
@@ -830,7 +802,6 @@ async function generatePalette(preserveLocked = true, preserveSamples = false) {
       setLoading(true);
       const candidates = await ExtractionEngine.extractSamples(AppState.image, swatchCount, [...AppState.seenPinHexes]);
       if (version !== generationVersion) return;
-      AppState.extractionPool = candidates.pool || [];
       const previous = AppState.pins;
       const kept = previous.slice(0, swatchCount).filter((_, i) => preserveSamples || (preserveLocked && AppState.locked[i]));
       const used = [...kept];
@@ -934,18 +905,15 @@ function applyStyleAndRedraw() {
 
 /** Project the original palette, then merge exact user colors and locked slots. */
 function composePalette(basePalette, preserveLocked = true) {
-  const { genSource, imgPostprocess, stylePreset } = AppState.options;
+  const { genSource, stylePreset } = AppState.options;
   // Pass the real displayed locked colors (not the stale pre-lock base value) so a
   // style's random accent/pop slot can echo the locked hue instead of inventing one.
   const lockedHexes = preserveLocked
     ? basePalette.map((_, i) => (AppState.locked[i] && AppState.palette[i]) || null)
     : [];
-  // No lock? In image mode a random accent/pop slot echoes a real photo color instead.
-  const naturalAccentHex = genSource === 'image' && !lockedHexes.some(Boolean)
-    ? StyleEngine.findNaturalAccentHex(stylePreset, AppState.extractionPool.map(p => p.hex))
-    : null;
-  const projected = genSource === 'scratch' || imgPostprocess === 'remap'
-    ? StyleEngine.projectPalette(basePalette, stylePreset, lockedHexes, naturalAccentHex) : [...basePalette];
+  // Styles only ever apply in scratch mode — image extraction always keeps true photo colors.
+  const projected = genSource === 'scratch'
+    ? StyleEngine.projectPalette(basePalette, stylePreset, lockedHexes) : [...basePalette];
   let anchorIndex = 0;
   return projected.map((hex, i) => {
     if (preserveLocked && AppState.locked[i] && AppState.palette[i]) return AppState.palette[i];
@@ -995,56 +963,20 @@ function redraw() {
   ColorSampler.syncOverlay?.();
 }
 
-/** 風格色彩只在「憑空生成」或「圖片提取 + 風格投影」時才會真正套用，其餘情況隱藏以免誤會。 */
+/** 風格色彩只在「憑空生成」時才會套用；圖片提取模式一律保留原始照片色調，隱藏風格面板以免誤會。 */
 function updateStyleSectionVisibility() {
   if (!$styleSection) return;
-  const { genSource, imgPostprocess } = AppState.options;
-  const shouldHide = genSource === 'image' && imgPostprocess !== 'remap';
+  const shouldHide = AppState.options.genSource === 'image';
   $styleSection.hidden = shouldHide;
   if ($styleDivider) $styleDivider.hidden = shouldHide;
 }
 
-const styleChipOriginalTitles = new WeakMap();
-
-/**
- * 圖片提取模式下，色票必須全部源自照片。含隨機跳色／輔色的風格（森林系、海洋系、
- * 礦石系、薄荷曼波）只有在這張照片本身就含有落在該輔色色相範圍內的顏色時才開放
- * ——輔色會改用那個真實顏色，不再憑空生成；找不到就停用並灰顯，因照片而異。
- */
-function updateStyleAvailability() {
-  const isImage = AppState.options.genSource === 'image';
-  const poolHexes = AppState.extractionPool.map(p => p.hex);
-  let currentDisallowed = false;
-  document.querySelectorAll('.style-chip[data-style]').forEach(chip => {
-    const input = chip.querySelector('input[name="style-preset"]');
-    if (!input) return;
-    if (!styleChipOriginalTitles.has(chip)) styleChipOriginalTitles.set(chip, chip.title);
-    const disallowed = isImage && !StyleEngine.isAvailableForPhoto(chip.dataset.style, poolHexes);
-    input.disabled = disallowed;
-    chip.classList.toggle('is-disabled', disallowed);
-    chip.title = disallowed
-      ? '這張照片沒有接近此風格重點色的顏色，圖片模式下暫不可用'
-      : styleChipOriginalTitles.get(chip);
-    if (disallowed && input.checked) currentDisallowed = true;
-  });
-  if (currentDisallowed) {
-    AppState.options.stylePreset = 'none';
-    const noneRadio = document.querySelector('input[name="style-preset"][value="none"]');
-    if (noneRadio) {
-      noneRadio.checked = true;
-      document.querySelectorAll('.style-chip').forEach(chip => chip.classList.toggle('active', chip.contains(noneRadio)));
-    }
-    if (AppState.palette.length) applyStyleAndRedraw();
-  }
-}
-
 function updateModeDescription() {
   updateStyleSectionVisibility();
-  updateStyleAvailability();
   if (!$genModeDesc) return;
-  const { genSource, imgPostprocess, genAlgo } = AppState.options;
+  const { genSource, genAlgo } = AppState.options;
   let key;
-  if (genSource === 'image') key = `image-${imgPostprocess}`;
+  if (genSource === 'image') key = 'image';
   else if (genAlgo === 'chaos') key = AppState.anchors.length ? 'chaos-anchor' : 'chaos';
   else key = 'harmony';
   $genModeDesc.textContent = MODE_DESCRIPTIONS[key] ?? '';

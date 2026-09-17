@@ -67,10 +67,8 @@ test('upload, paste, drop, source restoration and PNG export work in a repositor
   await page.locator('#upload-input').setInputFiles(file);
   await expect(page.locator('.swatch-btn-lock')).toHaveCount(5);
   const raw = await page.evaluate(() => [...AppState.palette]);
-  await choose(page, 'img-postprocess', 'remap');
-  await choose(page, 'style-preset', 'morandi');
-  expect(await page.evaluate(() => AppState.palette)).not.toEqual(raw);
-  await choose(page, 'img-postprocess', 'raw');
+  // Image mode never applies a style preset — the panel stays hidden and colors stay photo-derived.
+  await expect(page.locator('#section-style')).toBeHidden();
   expect(await page.evaluate(() => AppState.palette)).toEqual(raw);
   const download = page.waitForEvent('download');
   await page.locator('#btn-export-png').click();

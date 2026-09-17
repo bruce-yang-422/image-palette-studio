@@ -153,13 +153,16 @@ const ImagePins = (() => {
     while (layer.children.length < s.pins.length) layer.appendChild(createPin(layer.children.length));
     [...layer.children].forEach((button, i) => {
       const pin = s.pins[i];
+      // Show the actual output color (after any style projection), not the raw
+      // sampled pixel, so the pin matches what the swatch panel displays.
+      const displayHex = s.palette?.[i] || pin.hex;
       button.style.left = `${pin.x*100}%`; button.style.top = `${pin.y*100}%`;
-      button.style.background = pin.hex;
-      button.style.color = ColorConvert.contrastColor(pin.hex);
-      button.dataset.hex = pin.hex.toUpperCase();
-      button.setAttribute('aria-label', `取色錨點 ${i+1} ${pin.hex}${s.locked[i] ? ' 已鎖定' : ''}`);
+      button.style.background = displayHex;
+      button.style.color = ColorConvert.contrastColor(displayHex);
+      button.dataset.hex = displayHex.toUpperCase();
+      button.setAttribute('aria-label', `取色錨點 ${i+1} ${displayHex}${s.locked[i] ? ' 已鎖定' : ''}`);
       button.setAttribute('aria-pressed', String(s.selectedSlot === i));
-      button.title = `${pin.external ? '外部取色' : '原圖取色'} ${i+1}: ${pin.hex}；方向鍵微調，Shift 加速`;
+      button.title = `${pin.external ? '外部取色' : '原圖取色'} ${i+1}: ${displayHex}；方向鍵微調，Shift 加速`;
     });
     document.getElementById('pin-selection').textContent = `選取色槽 ${s.selectedSlot+1}${s.locked[s.selectedSlot] ? '（已鎖定）' : ''}`;
     fit();
