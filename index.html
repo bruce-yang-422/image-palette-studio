@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Image Palette Studio — 免費開源的劇照色票工作室，支援色盲模擬、多比例排版、風格色彩引擎與專業格式匯出。" />
+  <meta name="keywords" content="color palette, 色票, 色彩提取, 劇照色票, 莫蘭迪, 色盲模擬, design tokens" />
+  <meta name="author" content="Image Palette Studio" />
+  <title>Image Palette Studio — 圖片色票工作室</title>
+  <link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+
+<body class="dark-theme">
+
+  <!-- SVG 色盲濾鏡定義：必須在 body 內才是合法 HTML，隱藏不佔版面 -->
+  <svg id="svg-filters" xmlns="http://www.w3.org/2000/svg"
+       style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;"
+       aria-hidden="true" focusable="false">
+    <defs>
+      <!-- 紅色盲 Protanopia -->
+      <filter id="filter-protanopia" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix"
+          values="0.567 0.433 0     0 0
+                  0.558 0.442 0     0 0
+                  0     0.242 0.758 0 0
+                  0     0     0     1 0"/>
+      </filter>
+      <!-- 綠色盲 Deuteranopia -->
+      <filter id="filter-deuteranopia" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix"
+          values="0.625 0.375 0   0 0
+                  0.700 0.300 0   0 0
+                  0     0.300 0.7 0 0
+                  0     0     0   1 0"/>
+      </filter>
+      <!-- 藍黃色盲 Tritanopia -->
+      <filter id="filter-tritanopia" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix"
+          values="0.950 0.050 0     0 0
+                  0     0.433 0.567 0 0
+                  0     0.475 0.525 0 0
+                  0     0     0     1 0"/>
+      </filter>
+      <!-- 全色盲 Achromatopsia -->
+      <filter id="filter-achromatopsia" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix"
+          values="0.299 0.587 0.114 0 0
+                  0.299 0.587 0.114 0 0
+                  0.299 0.587 0.114 0 0
+                  0     0     0     1 0"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- ===================== HEADER ===================== -->
+  <header id="app-header" role="banner">
+    <div class="header-inner">
+
+      <!-- Logo & Brand -->
+      <a href="#" class="brand" aria-label="Image Palette Studio 首頁">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="5" width="26" height="18" rx="3" fill="#1a1a2e" stroke="#333" stroke-width="1"/>
+            <rect x="1" y="5" width="3" height="3" rx="0.5" fill="#444"/>
+            <rect x="1" y="10" width="3" height="3" rx="0.5" fill="#444"/>
+            <rect x="1" y="15" width="3" height="3" rx="0.5" fill="#444"/>
+            <rect x="1" y="20" width="3" height="3" rx="0.5" fill="#444"/>
+            <rect x="24" y="5" width="3" height="3" rx="0.5" fill="#444"/>
+            <rect x="24" y="10" width="3" height="3" rx="0.5" fill="#444"/>
+            <rect x="24" y="15" width="3" height="3" rx="0.5" fill="#444"/>
+            <rect x="24" y="20" width="3" height="3" rx="0.5" fill="#444"/>
+            <rect x="5" y="7" width="4" height="14" rx="1.5" fill="url(#g1)"/>
+            <rect x="10" y="7" width="4" height="14" rx="1.5" fill="url(#g2)"/>
+            <rect x="15" y="7" width="4" height="14" rx="1.5" fill="url(#g3)"/>
+            <rect x="20" y="7" width="4" height="14" rx="1.5" fill="url(#g4)"/>
+            <defs>
+              <linearGradient id="g1" x1="5" y1="7" x2="5" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#FF6B6B"/><stop offset="1" stop-color="#FF8E53"/></linearGradient>
+              <linearGradient id="g2" x1="10" y1="7" x2="10" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#FFD93D"/><stop offset="1" stop-color="#FF8C00"/></linearGradient>
+              <linearGradient id="g3" x1="15" y1="7" x2="15" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#6BCB77"/><stop offset="1" stop-color="#4D96FF"/></linearGradient>
+              <linearGradient id="g4" x1="20" y1="7" x2="20" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#9B72CF"/><stop offset="1" stop-color="#C44BCB"/></linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="brand-name">Image <span class="brand-accent">Palette</span> Studio</span>
+      </a>
+
+      <!-- Header Actions -->
+      <nav class="header-actions" role="navigation" aria-label="工具列">
+        <!-- 色盲模擬快捷選單 -->
+        <div class="header-btn-group">
+          <button id="btn-colorblind-toggle" class="header-btn" title="色盲模擬" aria-label="色盲友善模擬器" aria-expanded="false" aria-controls="colorblind-menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/>
+            </svg>
+            <span>色盲模擬</span>
+          </button>
+          <div id="colorblind-menu" class="dropdown-menu" role="menu" aria-label="色盲模擬選項" hidden>
+            <button class="dropdown-item active" role="menuitem" data-filter="none">正常視覺</button>
+            <button class="dropdown-item" role="menuitem" data-filter="protanopia">紅色盲 Protanopia</button>
+            <button class="dropdown-item" role="menuitem" data-filter="deuteranopia">綠色盲 Deuteranopia</button>
+            <button class="dropdown-item" role="menuitem" data-filter="tritanopia">藍黃色盲 Tritanopia</button>
+            <button class="dropdown-item" role="menuitem" data-filter="achromatopsia">全色盲 Achromatopsia</button>
+          </div>
+        </div>
+
+        <div class="header-divider" aria-hidden="true"></div>
+
+        <!-- 匯出按鈕 -->
+        <button id="btn-export-main" class="header-btn header-btn-primary" aria-label="匯出色票">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>匯出</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===================== MAIN WORKSPACE ===================== -->
+  <main id="app-workspace" role="main">
+
+    <!-- ===== LEFT PANEL: 控制區 ===== -->
+    <aside id="panel-left" class="side-panel" role="complementary" aria-label="圖片與控制設定">
+
+      <!-- 1. 上傳圖片（圖片模式才顯示） -->
+      <section id="section-upload" class="panel-section" aria-labelledby="upload-heading">
+        <h2 id="upload-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          上傳圖片
+        </h2>
+
+        <!-- 拖曳上傳區 -->
+        <div id="upload-dropzone" class="dropzone" role="button" tabindex="0"
+             aria-label="拖曳圖片至此或點擊選擇檔案"
+             aria-describedby="upload-hint">
+          <div class="dropzone-inner">
+            <svg class="dropzone-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p class="dropzone-label">上傳圖片開始提取色彩</p>
+            <p id="upload-hint" class="dropzone-hint">或點擊選擇 JPG / PNG / WebP</p>
+            <span class="dropzone-badge">MAX 20MB</span>
+          </div>
+          <input id="upload-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden aria-label="選擇圖片檔案" />
+        </div>
+
+        <!-- 圖片縮圖預覽 (上傳後顯示) -->
+        <div id="upload-preview" class="upload-preview" hidden aria-live="polite">
+          <img id="upload-thumbnail" src="" alt="已上傳圖片縮圖" />
+          <button id="btn-remove-image" class="btn-remove" aria-label="移除圖片">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- 憑空生成提示（scratch 模式才顯示） -->
+      <section id="section-scratch-hint" class="panel-section scratch-hint-section" hidden aria-label="憑空生成說明">
+        <div class="scratch-hint-box">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <p class="scratch-hint-title">憑空生成模式</p>
+          <p class="scratch-hint-desc">不需要上傳圖片。直接在下方設定演算法與錨點色，即可生成並展示色票卡。</p>
+          <button id="btn-scratch-regen" class="btn-primary btn-full" aria-label="立即生成色票">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            立即生成
+          </button>
+        </div>
+      </section>
+
+      <div class="panel-divider" aria-hidden="true"></div>
+
+
+      <!-- 2. 畫布比例 -->
+      <section id="section-aspect" class="panel-section" aria-labelledby="aspect-heading">
+        <h2 id="aspect-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          卡片比例
+          <span class="section-title-tip" title="指整張輸出卡（照片＋色票）的外觀比例，不是照片本身的比例">?</span>
+        </h2>
+        <div id="aspect-ratio-group" class="chip-group" role="radiogroup" aria-label="卡片輸出比例">
+          <label class="chip active" title="原圖自然比例，色票外加於下方">
+            <input type="radio" name="aspect-ratio" value="original" checked aria-label="原圖比例" />
+            <span>原圖</span>
+          </label>
+          <label class="chip" title="整張卡片（含色票）為正方形">
+            <input type="radio" name="aspect-ratio" value="1:1" aria-label="1比1正方形" />
+            <span>1:1</span>
+          </label>
+          <label class="chip" title="整張卡片 4:3">
+            <input type="radio" name="aspect-ratio" value="4:3" aria-label="4比3" />
+            <span>4:3</span>
+          </label>
+          <label class="chip" title="整張卡片 3:2">
+            <input type="radio" name="aspect-ratio" value="3:2" aria-label="3比2" />
+            <span>3:2</span>
+          </label>
+          <label class="chip" title="整張卡片 16:9 寬螢幕">
+            <input type="radio" name="aspect-ratio" value="16:9" aria-label="16比9" />
+            <span>16:9</span>
+          </label>
+          <label class="chip" title="整張卡片 2:1 電影格式">
+            <input type="radio" name="aspect-ratio" value="2:1" aria-label="2比1" />
+            <span>2:1</span>
+          </label>
+          <label class="chip" title="整張卡片 9:16 直式">
+            <input type="radio" name="aspect-ratio" value="9:16" aria-label="9比16" />
+            <span>9:16</span>
+          </label>
+        </div>
+
+        <!-- 裝裱模式 -->
+        <div id="fit-mode-group" class="chip-group chip-group-sm" role="radiogroup" aria-label="圖片適配模式">
+          <label class="chip active" title="置中裁切">
+            <input type="radio" name="fit-mode" value="crop" checked aria-label="置中裁切" />
+            <span>裁切</span>
+          </label>
+          <label class="chip" title="留白裝裱">
+            <input type="radio" name="fit-mode" value="letterbox" aria-label="留白裝裱" />
+            <span>裝裱</span>
+          </label>
+        </div>
+      </section>
+
+      <div class="panel-divider" aria-hidden="true"></div>
+
+      <!-- 2b. 版型（色票比重）-->
+      <section id="section-layout" class="panel-section" aria-labelledby="layout-heading">
+        <h2 id="layout-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="16" x2="21" y2="16"/></svg>
+          版型
+        </h2>
+        <div id="layout-preset-group" class="layout-preset-grid" role="radiogroup" aria-label="色票比重版型">
+
+          <!-- 細條 12% -->
+          <label class="layout-chip" title="細條：色票佔卡片高度 12%，照片主導">
+            <input type="radio" name="swatch-layout" value="thin" aria-label="細條版型" />
+            <div class="lp-thumb" aria-hidden="true">
+              <div class="lp-photo" style="flex:88"></div>
+              <div class="lp-swatch" style="flex:12"></div>
+            </div>
+            <span class="lp-label">細條</span>
+            <span class="lp-ratio">12%</span>
+          </label>
+
+          <!-- 標準 25% -->
+          <label class="layout-chip active" title="標準：色票佔 25%">
+            <input type="radio" name="swatch-layout" value="standard" checked aria-label="標準版型" />
+            <div class="lp-thumb" aria-hidden="true">
+              <div class="lp-photo" style="flex:75"></div>
+              <div class="lp-swatch" style="flex:25"></div>
+            </div>
+            <span class="lp-label">標準</span>
+            <span class="lp-ratio">25%</span>
+          </label>
+
+          <!-- 均分 50% -->
+          <label class="layout-chip" title="均分：照片與色票各佔 50%（1:1 比重）">
+            <input type="radio" name="swatch-layout" value="half" aria-label="均分版型" />
+            <div class="lp-thumb" aria-hidden="true">
+              <div class="lp-photo" style="flex:50"></div>
+              <div class="lp-swatch" style="flex:50"></div>
+            </div>
+            <span class="lp-label">均分</span>
+            <span class="lp-ratio">50%</span>
+          </label>
+
+          <!-- 色彩主導 70% -->
+          <label class="layout-chip" title="色彩主導：色票佔 70%">
+            <input type="radio" name="swatch-layout" value="color" aria-label="色彩主導版型" />
+            <div class="lp-thumb" aria-hidden="true">
+              <div class="lp-photo" style="flex:30"></div>
+              <div class="lp-swatch" style="flex:70"></div>
+            </div>
+            <span class="lp-label">色彩</span>
+            <span class="lp-ratio">70%</span>
+          </label>
+
+        </div>
+      </section>
+
+      <div class="panel-divider" aria-hidden="true"></div>
+
+      <!-- 3. 色票數量 -->
+      <section id="section-swatch-count" class="panel-section" aria-labelledby="swatch-count-heading">
+        <h2 id="swatch-count-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="2" y="7" width="4" height="10" rx="1"/><rect x="9" y="4" width="4" height="16" rx="1"/><rect x="16" y="7" width="4" height="10" rx="1"/></svg>
+          色票數量
+        </h2>
+        <div id="swatch-count-group" class="chip-group" role="radiogroup" aria-label="選擇色票數量">
+          <label class="chip" title="3色 極簡"><input type="radio" name="swatch-count" value="3" aria-label="3色" /><span>3</span></label>
+          <label class="chip" title="4色"><input type="radio" name="swatch-count" value="4" aria-label="4色" /><span>4</span></label>
+          <label class="chip active" title="5色 經典"><input type="radio" name="swatch-count" value="5" checked aria-label="5色" /><span>5</span></label>
+          <label class="chip" title="6色 豐富"><input type="radio" name="swatch-count" value="6" aria-label="6色" /><span>6</span></label>
+          <label class="chip" title="8色"><input type="radio" name="swatch-count" value="8" aria-label="8色" /><span>8</span></label>
+        </div>
+      </section>
+
+      <div class="panel-divider" aria-hidden="true"></div>
+
+      <!-- 4. 色彩生成邏輯 (§4 完整實作) -->
+      <section id="section-gen-mode" class="panel-section" aria-labelledby="gen-mode-heading">
+        <h2 id="gen-mode-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          生成邏輯
+        </h2>
+
+        <!-- ── 頂層：圖片提取 vs 憑空生成 ── -->
+        <div id="gen-source-group" class="gen-source-tabs" role="radiogroup" aria-label="生成來源">
+          <label class="gen-source-tab active" title="從上傳的圖片以 K-means++ 提取色彩">
+            <input type="radio" name="gen-source" value="image" checked aria-label="圖片提取" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>📷 圖片提取</span>
+          </label>
+          <label class="gen-source-tab" title="不需要圖片，直接憑空生成色票">
+            <input type="radio" name="gen-source" value="scratch" aria-label="憑空生成" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>✨ 憑空生成</span>
+          </label>
+        </div>
+
+        <!-- ── 圖片提取子選項 ── -->
+        <div id="gen-image-opts" class="gen-sub-panel" role="group" aria-label="圖片提取選項">
+          <p class="gen-info-text">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            K-means++ 從圖片提取最具代表性的色彩，可搭配下方風格投影
+          </p>
+
+          <!-- 手動取色工具 -->
+          <div class="sampler-toolbar">
+            <label class="sub-label" style="margin-top:0">取色工具</label>
+            <div class="sampler-tool-row">
+              <button id="btn-eyedropper" class="sampler-tool-btn" aria-label="手動取色：點擊或拖曳圖片取色" aria-pressed="false"
+                      title="點擊圖片取色（單點）；拖曳選框取區域主色">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L1 16.67V23h6.33L19.39 10.96a5.5 5.5 0 0 0 0-7.78z"/>
+                  <line x1="17.5" y1="7.5" x2="14" y2="11"/>
+                </svg>
+                <span>手動取色</span>
+              </button>
+              <div id="sampler-status" class="sampler-status" hidden>
+                <span id="sampler-count-text">已選 0 色</span>
+                <button id="btn-sampler-done" class="sampler-done-btn" title="完成取色，套用至色票">完成</button>
+              </div>
+            </div>
+            <p class="sampler-tip">點擊取單色；拖曳選框取區域主色</p>
+          </div>
+          <!-- 提取後處理 -->
+          <label class="sub-label">提取後套用</label>
+          <div class="chip-group chip-group-sm" role="radiogroup" aria-label="提取後處理方式">
+            <label class="chip active" title="保留原始提取色彩">
+              <input type="radio" name="img-postprocess" value="raw" checked aria-label="原始色彩" />
+              <span>原始色彩</span>
+            </label>
+            <label class="chip" title="提取後強制投影至所選風格（Image Remap）">
+              <input type="radio" name="img-postprocess" value="remap" aria-label="風格投影 Image Remap" />
+              <span>風格投影</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- ── 憑空生成子選項 ── -->
+        <div id="gen-scratch-opts" class="gen-sub-panel" hidden role="group" aria-label="憑空生成選項">
+
+          <!-- 演算法選擇 -->
+          <label class="sub-label">演算法</label>
+          <div id="gen-algo-group" class="chip-group" role="radiogroup" aria-label="生成演算法">
+            <label class="chip active" title="純亂數探索，全色彩空間隨機取樣（附安全亮度邊界保護）">
+              <input type="radio" name="gen-algo" value="chaos" checked aria-label="純亂數 Chaos Mode" />
+              <span>🎲 純亂數</span>
+            </label>
+            <label class="chip" title="以錨點色為基準，依照和諧規則展開色票">
+              <input type="radio" name="gen-algo" value="harmony" aria-label="和諧配色 Harmony Mode" />
+              <span>🎵 和諧</span>
+            </label>
+          </div>
+
+          <!-- 和諧子類型（harmony 才顯示） -->
+          <div id="harmony-algo-opts" class="sub-options" hidden role="group" aria-label="和諧類型">
+            <select id="harmony-type" class="select-input" aria-label="和諧配色類型">
+              <option value="analogous">類比色 Analogous（±30°）</option>
+              <option value="complementary">互補色 Complementary（180°）</option>
+              <option value="split-complementary">分裂互補 Split-Complementary</option>
+              <option value="triadic">三角色 Triadic（120°）</option>
+            </select>
+          </div>
+
+          <!-- ── 錨點色 ── -->
+          <div class="anchor-section">
+            <div class="anchor-header">
+              <span class="sub-label">
+                錨點色
+                <span class="anchor-badge" id="anchor-count-badge" hidden>0</span>
+              </span>
+              <button id="btn-add-anchor" class="btn-add-anchor"
+                      aria-label="新增錨點色：指定一個主色，其餘色票圍繞它生成"
+                      title="新增主色錨點（最多可設置 N-1 個）">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                新增主色
+              </button>
+            </div>
+
+            <!-- 錨點色項目列表（JS 動態插入） -->
+            <ul id="anchor-list" class="anchor-list" role="list"
+                aria-label="錨點色列表" aria-live="polite">
+              <li id="anchor-empty" class="anchor-empty" role="listitem">
+                <span>未設定 → 完全隨機生成</span>
+              </li>
+            </ul>
+
+            <p class="anchor-tip">
+              設定 1~N 個主色，其餘空位依演算法自動補色
+            </p>
+          </div>
+
+        </div>
+
+        <!-- 當前模式說明 -->
+        <div id="gen-mode-desc" class="gen-mode-desc" role="status" aria-live="polite">
+          <span id="gen-mode-desc-text">K-means++ 從圖片提取最具代表性色彩，保留原始色調</span>
+        </div>
+
+      </section>
+
+      <div class="panel-divider" aria-hidden="true"></div>
+
+      <!-- 5. 風格色彩 -->
+      <section id="section-style" class="panel-section" aria-labelledby="style-heading">
+        <h2 id="style-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          風格色彩
+        </h2>
+        <div id="style-grid" class="style-grid" role="radiogroup" aria-label="選擇色彩風格">
+          <label class="style-chip active" data-style="none" title="無風格，保留原始色彩">
+            <input type="radio" name="style-preset" value="none" checked aria-label="無風格" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#888,#aaa)" aria-hidden="true"></span>
+            <span class="style-name">原始</span>
+          </label>
+          <label class="style-chip" data-style="morandi" title="莫蘭迪色">
+            <input type="radio" name="style-preset" value="morandi" aria-label="莫蘭迪色" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#b8a99a,#9eadb5,#c4b8a8)" aria-hidden="true"></span>
+            <span class="style-name">莫蘭迪</span>
+          </label>
+          <label class="style-chip" data-style="macaron" title="馬卡龍色">
+            <input type="radio" name="style-preset" value="macaron" aria-label="馬卡龍色" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#ffb3c1,#b5ead7,#c7ceea)" aria-hidden="true"></span>
+            <span class="style-name">馬卡龍</span>
+          </label>
+          <label class="style-chip" data-style="earth" title="大地色系">
+            <input type="radio" name="style-preset" value="earth" aria-label="大地色系" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#8b5e3c,#c4a882,#6b7c5e)" aria-hidden="true"></span>
+            <span class="style-name">大地色</span>
+          </label>
+          <label class="style-chip" data-style="maillard" title="美拉德色">
+            <input type="radio" name="style-preset" value="maillard" aria-label="美拉德色" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#2c1810,#8b4513,#d4a574)" aria-hidden="true"></span>
+            <span class="style-name">美拉德</span>
+          </label>
+          <label class="style-chip" data-style="dopamine" title="多巴胺色">
+            <input type="radio" name="style-preset" value="dopamine" aria-label="多巴胺色" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#ff0080,#ffff00,#00ffff)" aria-hidden="true"></span>
+            <span class="style-name">多巴胺</span>
+          </label>
+          <label class="style-chip" data-style="mint-mambo" title="薄荷曼波">
+            <input type="radio" name="style-preset" value="mint-mambo" aria-label="薄荷曼波" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#a8edca,#5cbfa3,#f9f3a8)" aria-hidden="true"></span>
+            <span class="style-name">薄荷曼波</span>
+          </label>
+          <label class="style-chip" data-style="pop-art" title="波普色">
+            <input type="radio" name="style-preset" value="pop-art" aria-label="波普色" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#ff0000,#ffff00,#0000ff)" aria-hidden="true"></span>
+            <span class="style-name">波普</span>
+          </label>
+          <label class="style-chip" data-style="forest" title="森林自然系">
+            <input type="radio" name="style-preset" value="forest" aria-label="森林自然系" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#4a6741,#7a9e6a,#2d4a27)" aria-hidden="true"></span>
+            <span class="style-name">森林系</span>
+          </label>
+          <label class="style-chip" data-style="ocean" title="海洋系">
+            <input type="radio" name="style-preset" value="ocean" aria-label="海洋系" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#006994,#4ba3c3,#c5e8f2)" aria-hidden="true"></span>
+            <span class="style-name">海洋系</span>
+          </label>
+          <label class="style-chip" data-style="mineral" title="礦石地質系">
+            <input type="radio" name="style-preset" value="mineral" aria-label="礦石地質系" />
+            <span class="style-dot" style="background:linear-gradient(135deg,#c1440e,#7a8a8a,#d4c5a9)" aria-hidden="true"></span>
+            <span class="style-name">礦石系</span>
+          </label>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- ===== CENTER: 畫布預覽區 ===== -->
+    <section id="panel-center" class="center-panel" aria-label="劇照色票卡預覽">
+
+      <!-- 畫布外框 -->
+      <div id="canvas-wrapper" class="canvas-wrapper">
+        <!-- 無圖片時的佔位畫面 -->
+        <div id="canvas-placeholder" class="canvas-placeholder" aria-label="請上傳圖片以開始">
+          <div class="placeholder-icon" aria-hidden="true">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="10" width="56" height="44" rx="6" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/>
+              <circle cx="21" cy="25" r="5" stroke="currentColor" stroke-width="2"/>
+              <path d="M4 44l15-12 10 9 10-14 21 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <p class="placeholder-title">上傳圖片開始提取色票</p>
+          <p class="placeholder-subtitle">支援 JPG、PNG、WebP，最大 20MB</p>
+          <button id="btn-upload-trigger" class="btn-upload-trigger" aria-label="選擇圖片檔案">選擇圖片</button>
+        </div>
+
+        <!-- 主 Canvas (上傳後顯示) -->
+        <canvas id="main-canvas" width="800" height="500" hidden
+                aria-label="劇照色票卡畫布" role="img">
+          您的瀏覽器不支援 Canvas，請升級至現代瀏覽器。
+        </canvas>
+      </div>
+
+      <!-- Canvas 下方工具列 -->
+      <div id="canvas-toolbar" class="canvas-toolbar" role="toolbar" aria-label="畫布操作工具列">
+
+        <!-- 色塊間距 -->
+        <div class="toolbar-item" role="group" aria-label="色塊間距設定">
+          <label for="swatch-gap" class="toolbar-label">間距</label>
+          <input id="swatch-gap" type="range" min="0" max="16" value="4" step="1"
+                 class="range-input" aria-label="色塊間距 0到16像素" aria-valuemin="0" aria-valuemax="16" aria-valuenow="4" />
+          <output for="swatch-gap" id="swatch-gap-value" class="range-value">4px</output>
+        </div>
+
+        <!-- 圓角 -->
+        <div class="toolbar-item" role="group" aria-label="色塊圓角設定">
+          <label for="swatch-radius" class="toolbar-label">圓角</label>
+          <input id="swatch-radius" type="range" min="0" max="24" value="0" step="1"
+                 class="range-input" aria-label="色塊圓角半徑 0到24像素" aria-valuemin="0" aria-valuemax="24" aria-valuenow="0" />
+          <output for="swatch-radius" id="swatch-radius-value" class="range-value">0px</output>
+        </div>
+
+        <!-- HEX 標籤 -->
+        <div class="toolbar-item" role="group" aria-label="HEX色碼顯示設定">
+          <label class="toolbar-label">HEX 標籤</label>
+          <div class="toggle-group" role="radiogroup" aria-label="HEX色碼顯示位置">
+            <label class="toggle-chip active"><input type="radio" name="hex-label" value="none" checked aria-label="不顯示" /><span>無</span></label>
+            <label class="toggle-chip"><input type="radio" name="hex-label" value="inside" aria-label="顯示在色塊內" /><span>內部</span></label>
+            <label class="toggle-chip"><input type="radio" name="hex-label" value="below" aria-label="顯示在色塊下方" /><span>下方</span></label>
+          </div>
+        </div>
+
+        <!-- 重新生成 -->
+        <button id="btn-regenerate" class="btn-action" aria-label="重新生成色票">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          重新生成
+        </button>
+
+      </div>
+    </section>
+
+    <!-- ===== RIGHT PANEL: 色票操作 ===== -->
+    <aside id="panel-right" class="side-panel" role="complementary" aria-label="色票槽位與匯出">
+
+      <!-- 色票槽位列表 -->
+      <section id="section-swatches" class="panel-section" aria-labelledby="swatches-heading">
+        <h2 id="swatches-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          色票槽位
+        </h2>
+
+        <!-- 色票項目列表 (JS 動態生成) -->
+        <ul id="swatch-list" class="swatch-list" role="list" aria-label="色票槽位列表" aria-live="polite">
+          <!--
+          [JS 動態插入範本]
+          <li class="swatch-item" role="listitem" data-index="0">
+            <div class="swatch-color" style="background:#FF6B6B" aria-label="色票顏色 #FF6B6B"></div>
+            <div class="swatch-info">
+              <span class="swatch-hex">#FF6B6B</span>
+              <span class="swatch-name">暖珊瑚紅</span>
+            </div>
+            <div class="swatch-actions">
+              <button class="swatch-btn-lock" aria-label="鎖定此色票" title="鎖定" aria-pressed="false">🔓</button>
+              <button class="swatch-btn-copy" aria-label="複製 HEX 色碼" title="複製">⎘</button>
+            </div>
+          </li>
+          -->
+          <li class="swatch-item swatch-placeholder" role="listitem">
+            <span>色票將在此顯示</span>
+          </li>
+        </ul>
+      </section>
+
+      <div class="panel-divider" aria-hidden="true"></div>
+
+      <!-- 漸層預覽 -->
+      <section id="section-gradient" class="panel-section" aria-labelledby="gradient-heading">
+        <h2 id="gradient-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><defs><linearGradient id="gh" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#ff6b6b"/><stop offset="100%" stop-color="#4ecdc4"/></linearGradient></defs><rect x="2" y="8" width="20" height="8" rx="2" fill="url(#gh)"/></svg>
+          漸層生成器
+        </h2>
+        <div id="gradient-preview" class="gradient-preview" aria-label="漸層預覽" role="img">
+          <div id="gradient-bar" class="gradient-bar" aria-hidden="true"></div>
+        </div>
+        <div class="gradient-types" role="radiogroup" aria-label="漸層類型">
+          <label class="chip active"><input type="radio" name="gradient-type" value="linear" checked aria-label="線性漸層" /><span>線性</span></label>
+          <label class="chip"><input type="radio" name="gradient-type" value="radial" aria-label="放射漸層" /><span>放射</span></label>
+        </div>
+        <div class="gradient-code-wrap">
+          <pre id="gradient-code" class="code-block" aria-label="CSS 漸層程式碼"><code>/* 生成色票後顯示 CSS */</code></pre>
+          <button id="btn-copy-gradient" class="btn-copy-code" aria-label="複製漸層 CSS 程式碼">複製</button>
+        </div>
+      </section>
+
+      <div class="panel-divider" aria-hidden="true"></div>
+
+      <!-- 匯出選項 -->
+      <section id="section-export" class="panel-section" aria-labelledby="export-heading">
+        <h2 id="export-heading" class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          匯出格式
+        </h2>
+        <div class="export-grid">
+          <button id="btn-export-png" class="export-btn" aria-label="匯出 PNG 圖片">
+            <span class="export-icon">🖼️</span>
+            <span class="export-label">PNG</span>
+            <span class="export-desc">色票卡圖片</span>
+          </button>
+          <button id="btn-export-svg" class="export-btn" aria-label="匯出 SVG 向量色票">
+            <span class="export-icon">📐</span>
+            <span class="export-label">SVG</span>
+            <span class="export-desc">向量色票卡</span>
+          </button>
+          <button id="btn-export-ase" class="export-btn" aria-label="匯出 ASE Adobe 色票">
+            <span class="export-icon">🎨</span>
+            <span class="export-label">ASE</span>
+            <span class="export-desc">Adobe 色票</span>
+          </button>
+          <button id="btn-export-aco" class="export-btn" aria-label="匯出 ACO Photoshop 色票">
+            <span class="export-icon">Ps</span>
+            <span class="export-label">ACO</span>
+            <span class="export-desc">Photoshop</span>
+          </button>
+          <button id="btn-export-json" class="export-btn" aria-label="匯出 JSON Design Tokens">
+            <span class="export-icon">{}</span>
+            <span class="export-label">JSON</span>
+            <span class="export-desc">Design Tokens</span>
+          </button>
+          <button id="btn-export-css" class="export-btn" aria-label="匯出 CSS 變數">
+            <span class="export-icon">#</span>
+            <span class="export-label">CSS</span>
+            <span class="export-desc">CSS 變數</span>
+          </button>
+        </div>
+      </section>
+
+    </aside>
+
+  </main>
+
+  <!-- ===================== TOAST 通知 ===================== -->
+  <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="toast-container"></div>
+
+  <!-- ===================== 複製成功提示 ===================== -->
+  <div id="copy-tooltip" class="copy-tooltip" hidden aria-live="assertive">已複製！</div>
+
+  <!-- ===================== SCRIPTS ===================== -->
+  <!-- 核心演算法引擎 -->
+  <script src="js/utils/color-convert.js"></script>
+  <script src="js/utils/color-math.js"></script>
+  <script src="js/core/styles.js"></script>
+  <script src="js/core/extraction.js"></script>
+  <script src="js/core/harmony.js"></script>
+  <script src="js/core/canvas-renderer.js"></script>
+  <script src="js/core/export-engine.js"></script>
+
+  <!-- UI 元件 -->
+  <script src="js/components/upload.js"></script>
+  <script src="js/components/swatch-list.js"></script>
+  <script src="js/components/colorblind-sim.js"></script>
+  <script src="js/components/gradient-gen.js"></script>
+  <script src="js/components/export-ui.js"></script>
+  <script src="js/components/color-sampler.js"></script>
+
+  <!-- 主應用程式進入點 -->
+  <script src="js/app.js"></script>
+
+</body>
+</html>

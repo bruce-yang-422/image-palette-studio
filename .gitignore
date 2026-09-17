@@ -1,0 +1,22 @@
+# Local editor settings
+.vscode/
+.idea/
+
+# Dependencies and generated output
+node_modules/
+dist/
+coverage/
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.swp
+*~
