@@ -29,10 +29,12 @@ const SwatchListComponent = (() => {
    * 以新色票陣列重新渲染列表
    * @param {string[]} palette HEX 陣列
    * @param {boolean[]} [locked] 鎖定狀態（可選）
+   * @param {number} [selected] 目前選取的槽位索引
+   * @param {number} [anchorCount] 憑空生成模式下，前 N 槽由錨點色固定（重新生成不會變），視為鎖定但改由左側錨點色列表控制
    */
-  function render(palette, locked = [], selected = -1) {
+  function render(palette, locked = [], selected = -1, anchorCount = 0) {
     _palette = [...palette];
-    _locked  = palette.map((_, i) => locked[i] ?? false);
+    _locked  = palette.map((_, i) => (locked[i] ?? false) || i < anchorCount);
 
     listEl.innerHTML = '';
 
@@ -42,7 +44,7 @@ const SwatchListComponent = (() => {
     }
 
     palette.forEach((hex, i) => {
-      const li = buildSwatchItem(hex, i, _locked[i]);
+      const li = buildSwatchItem(hex, i, _locked[i], i < anchorCount);
       listEl.appendChild(li);
       // Stagger animation delay
       li.style.animationDelay = `${i * 40}ms`;
@@ -59,8 +61,9 @@ const SwatchListComponent = (() => {
 
   /**
    * 建立單一色票 <li> 元素
+   * @param {boolean} isAnchored 是否由左側「錨點色」固定（此時鎖頭按鈕停用，改到錨點色列表移除）
    */
-  function buildSwatchItem(hex, index, isLocked) {
+  function buildSwatchItem(hex, index, isLocked, isAnchored = false) {
     const name = ColorMath.approximateName(hex);
     const formats = ColorConvert.hexToAllFormats(hex);
     const contrast = ColorConvert.contrastReport(hex);
@@ -70,6 +73,7 @@ const SwatchListComponent = (() => {
     li.setAttribute('role', 'listitem');
     li.dataset.index = index;
     if (isLocked) li.classList.add('is-locked');
+    if (isAnchored) li.classList.add('is-anchored');
 
     li.innerHTML = `
       <button class="swatch-select" aria-label="選取色槽 ${index+1}" aria-pressed="false">${index+1}</button>
@@ -83,9 +87,10 @@ const SwatchListComponent = (() => {
       </div>
       <div class="swatch-actions">
         <button class="swatch-btn-lock"
-                aria-label="${isLocked ? '解鎖此色票' : '鎖定此色票'}"
+                aria-label="${isAnchored ? '此色由錨點色固定' : (isLocked ? '解鎖此色票' : '鎖定此色票')}"
                 aria-pressed="${isLocked}"
-                title="${isLocked ? '解鎖' : '鎖定'}">
+                ${isAnchored ? 'disabled' : ''}
+                title="${isAnchored ? '此色由左側「錨點色」列表控制，請至該處移除或更換' : (isLocked ? '解鎖' : '鎖定')}">
           ${isLocked ? lockIcon() : unlockIcon()}
         </button>
         <button class="swatch-btn-copy"
@@ -224,6 +229,10 @@ const SwatchListComponent = (() => {
       }
       .swatch-item.is-locked .swatch-btn-lock {
         color: var(--clr-warning);
+      }
+      .swatch-item.is-anchored .swatch-btn-lock {
+        cursor: not-allowed;
+        opacity: 0.7;
       }
       .swatch-color-input {
         width: 0; height: 0; opacity: 0;

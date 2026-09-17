@@ -705,16 +705,17 @@ function initColorSampler() {
     AppState.sampledCount++;
     if ($samplerCount) $samplerCount.textContent = `已選 ${AppState.sampledCount} 色`;
 
-    // 覆寫到第一個未鎖定的色票槽位；若都鎖定則附加不進去，僅提示
-    const idx = AppState.palette.findIndex((_, i) => !AppState.locked[i]);
+    // 覆寫到第一個未鎖定（也不是錨點固定）的色票槽位；若都被佔用則不寫入，僅提示
+    const anchorCount = anchorCoverage();
+    const idx = AppState.palette.findIndex((_, i) => i >= anchorCount && !AppState.locked[i]);
     if (idx >= 0) {
       AppState.palette[idx] = hex;
       AppState.basePalette[idx] = hex;
-      SwatchListComponent.render(AppState.palette, AppState.locked);
+      SwatchListComponent.render(AppState.palette, AppState.locked, undefined, anchorCount);
       GradientGen.update(AppState.palette);
       redraw();
     } else {
-      AppToast.show('所有色票皆已鎖定，請先解鎖欲替換的色票', 'warning');
+      AppToast.show('所有色票皆已鎖定或由錨點色固定，請先解鎖或移除錨點', 'warning');
     }
   });
 
@@ -931,8 +932,13 @@ function composePalette(basePalette, preserveLocked = true) {
 // UI 統一更新
 // ─────────────────────────────────────────────
 
+/** 憑空生成模式下，前 N 槽由錨點色固定，重新生成不會變，畫面上等同鎖定。 */
+function anchorCoverage() {
+  return AppState.options.genSource === 'scratch' ? AppState.anchors.length : 0;
+}
+
 function updateAllUI() {
-  SwatchListComponent.render(AppState.palette, AppState.locked, AppState.selectedSlot);
+  SwatchListComponent.render(AppState.palette, AppState.locked, AppState.selectedSlot, anchorCoverage());
   GradientGen.update(AppState.palette);
   AccessibilityPanel.update(AppState.palette);
   ImagePins.sync();

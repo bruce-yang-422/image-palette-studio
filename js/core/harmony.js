@@ -56,7 +56,8 @@ const HarmonyEngine = (() => {
 
   /**
    * 類比色 Analogous
-   * 以基準色為中心，所有色相限制於 ±30°
+   * 以基準色為中心，所有色相限制於 ±30°；明度依序拉開分佈（而非全部擠在同一
+   * 明度上下抖動），確保色票裡至少有一深一淺，可組出堪用的文字/背景對比。
    * @param {string} baseHex
    * @param {number} count
    * @returns {string[]}
@@ -65,7 +66,12 @@ const HarmonyEngine = (() => {
     const offsets = Array.from({ length: count }, (_, i) =>
       count === 1 ? 0 : -30 + 60 * i / (count - 1));
     const { s, l } = ColorConvert.hexToHsl(baseHex);
-    return offsets.map(offset => shiftHue(baseHex, offset, jitterSL(s, l)));
+    const lSpread = 32; // 明度分佈的 ± 範圍
+    return offsets.map((offset, i) => {
+      const t = count === 1 ? 0 : i / (count - 1) - 0.5; // -0.5..0.5
+      const targetL = Math.max(15, Math.min(90, l + t * 2 * lSpread));
+      return shiftHue(baseHex, offset, jitterSL(s, targetL, 6));
+    });
   }
 
   /**
