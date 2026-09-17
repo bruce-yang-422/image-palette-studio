@@ -749,6 +749,35 @@ body::after {
   color: var(--clr-text-secondary);
 }
 
+/* 錨點色／鎖定色跟這個風格差太多時，停用並灰顯 */
+.style-chip.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.style-chip.is-disabled:hover {
+  border-color: var(--clr-border);
+  background: var(--clr-bg-overlay);
+  transform: none;
+}
+
+.style-chip.is-disabled:hover .style-dot {
+  transform: none;
+}
+
+.style-chip.is-disabled::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--clr-error);
+  background: linear-gradient(45deg, transparent 46%, var(--clr-error) 48%, var(--clr-error) 52%, transparent 54%);
+  background-color: var(--clr-bg-overlay);
+}
+
 /* ----------------------------------------------------------------
    12. CENTER PANEL (Canvas Area)
    ---------------------------------------------------------------- */
@@ -2026,6 +2055,27 @@ body::after {
 .swatch-info { min-width:0; }
 .contrast-controls { display:flex; gap:8px; margin:12px 0; }
 .contrast-controls label { min-width:0; flex:1; font-size:12px; color:var(--clr-text-secondary); }
+.swatch-select-field { min-width:0; flex:1; position:relative; }
+.swatch-select-field .sub-label { display:block; margin:0 0 4px; }
+.swatch-select-btn {
+  display:flex; align-items:center; gap:8px; width:100%;
+  padding:8px 10px; background:var(--clr-bg-overlay);
+  border:1px solid var(--clr-border); border-radius:var(--radius-md);
+  color:var(--clr-text-primary); font-size:0.8rem; font-weight:500;
+  font-family:inherit; cursor:pointer;
+}
+.swatch-select-btn:hover:not(:disabled) { border-color:var(--clr-border-hover); }
+.swatch-select-btn:disabled { opacity:.5; cursor:not-allowed; }
+.swatch-select-btn .swatch-select-dot { width:16px; height:16px; border-radius:4px; flex-shrink:0; border:1px solid var(--clr-border-hover); }
+.swatch-select-btn .swatch-select-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.swatch-select-menu { left:0; right:auto; min-width:100%; max-height:240px; overflow-y:auto; }
+.swatch-select-item {
+  display:flex; align-items:center; gap:8px; width:100%;
+  background:none; border:none; color:inherit; cursor:pointer;
+  font-family:inherit; font-size:0.85rem;
+}
+.swatch-select-item .swatch-select-dot { width:16px; height:16px; border-radius:4px; flex-shrink:0; border:1px solid var(--clr-border-hover); }
+.swatch-select-item.active { background:rgba(101,119,212,0.14); color:var(--clr-text-primary); }
 .contrast-preview { padding:16px; border-radius:8px; font-size:18px; margin-bottom:8px; }
 #contrast-result { font-size:12px; color:var(--clr-text-primary); }
 .export-code { max-height:220px; overflow:auto; white-space:pre; margin:10px 0; }

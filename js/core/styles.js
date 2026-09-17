@@ -254,6 +254,33 @@ const StyleEngine = (() => {
     return palette;
   }
 
+  /** 單一顏色是否已經接近這個風格會把它變成的樣子（幾乎不用改） */
+  const STYLE_MATCH_TOLERANCE = 20; // CIE76 ΔE：低於此值視為肉眼難以分辨的同一顏色
+
+  function matchesStyle(hex, styleKey) {
+    if (styleKey === 'none') return true;
+    const preset = STYLE_PRESETS[styleKey];
+    if (!preset) return true;
+    const hsl = ColorConvert.hexToHsl(hex);
+    // 色相有限制的風格，來源色的色相也要先落在附近，避免低飽和色因色度低而誤判成合拍
+    const hueRestricted = (preset.hMax - preset.hMin) < 360;
+    const hueMargin = 15;
+    if (hueRestricted && (hsl.h < preset.hMin - hueMargin || hsl.h > preset.hMax + hueMargin)) return false;
+    const clamped = ColorMath.clampHsl(hsl, preset);
+    const projected = ColorConvert.hslToHex(clamped.h, clamped.s, clamped.l);
+    return ColorMath.deltaE76(hex, projected) <= STYLE_MATCH_TOLERANCE;
+  }
+
+  /**
+   * 風格是否跟目前的固定色（錨點色／鎖定色，這些顏色不會被風格投影）相容。
+   * 只要有一個固定色跟這個風格差太多，套用後就會顯得格格不入，因此要求全部通過。
+   * @param {string} styleKey
+   * @param {string[]} fixedHexes 目前不受投影影響的顏色（錨點色、鎖定色）
+   */
+  function isCompatibleWithFixedColors(styleKey, fixedHexes = []) {
+    return fixedHexes.every(hex => matchesStyle(hex, styleKey));
+  }
+
   // ─────────────────────────────────────────────
   // 公開 API
   // ─────────────────────────────────────────────
@@ -263,6 +290,8 @@ const StyleEngine = (() => {
     projectPalette,
     randomInStyle,
     generateStylePalette,
+    matchesStyle,
+    isCompatibleWithFixedColors,
 
     /** 取得所有風格鍵值列表 */
     getStyleKeys: () => Object.keys(STYLE_PRESETS),

@@ -605,9 +605,35 @@
       <section class="panel-section" aria-labelledby="contrast-heading">
         <h2 id="contrast-heading" class="section-title">文字對比檢測</h2>
         <p class="sampler-tip">各色槽顯示建議黑／白字的對比。一般文字 AA ≥ 4.5:1、AAA ≥ 7:1；僅評估文字與背景配對。</p>
+
+        <div class="chip-group chip-group-sm" role="radiogroup" aria-label="配對方式">
+          <label class="chip active" title="自動挑選色票中色差最大的兩色配對">
+            <input type="radio" name="contrast-mode" value="auto" checked aria-label="自動挑最大色差" />
+            <span>自動挑最大色差</span>
+          </label>
+          <label class="chip" title="自行指定前景／背景色槽">
+            <input type="radio" name="contrast-mode" value="manual" aria-label="手動選色" />
+            <span>手動選色</span>
+          </label>
+        </div>
+
         <div class="contrast-controls">
-          <label>前景 <select id="contrast-foreground" class="select-input" aria-label="對比前景色槽"></select></label>
-          <label>背景 <select id="contrast-background" class="select-input" aria-label="對比背景色槽"></select></label>
+          <div class="swatch-select-field">
+            <span class="sub-label">前景</span>
+            <button type="button" id="contrast-foreground" class="swatch-select-btn" aria-haspopup="listbox" aria-expanded="false">
+              <span class="swatch-select-dot" aria-hidden="true"></span>
+              <span class="swatch-select-label">—</span>
+            </button>
+            <div id="contrast-foreground-menu" class="dropdown-menu swatch-select-menu" role="listbox" aria-label="選擇前景色槽" hidden></div>
+          </div>
+          <div class="swatch-select-field">
+            <span class="sub-label">背景</span>
+            <button type="button" id="contrast-background" class="swatch-select-btn" aria-haspopup="listbox" aria-expanded="false">
+              <span class="swatch-select-dot" aria-hidden="true"></span>
+              <span class="swatch-select-label">—</span>
+            </button>
+            <div id="contrast-background-menu" class="dropdown-menu swatch-select-menu" role="listbox" aria-label="選擇背景色槽" hidden></div>
+          </div>
         </div>
         <div id="contrast-preview" class="contrast-preview">Aa 文字預覽</div>
         <output id="contrast-result" role="status" aria-live="polite"></output>

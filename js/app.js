@@ -226,6 +226,7 @@ function initComponents() {
     AppState.locked[index] = locked;
     ImagePins.sync();
     updateCarryLocksVisibility();
+    updateStyleAvailability();
   });
 
   document.getElementById('btn-carry-locks')?.addEventListener('click', carryLockedColorsToScratch);
@@ -981,6 +982,43 @@ function updateStyleSectionVisibility() {
   if ($styleDivider) $styleDivider.hidden = shouldHide;
 }
 
+const styleChipOriginalTitles = new WeakMap();
+
+/**
+ * 憑空生成模式下，錨點色與鎖定色不會被風格投影，維持原色。如果風格跟這些固定色
+ * 差太多，套用後就會有一色格格不入，因此跟這些固定色不合拍的風格直接停用並灰顯。
+ */
+function updateStyleAvailability() {
+  if (AppState.options.genSource !== 'scratch') {
+    document.querySelectorAll('.style-chip[data-style] input').forEach(input => { input.disabled = false; });
+    document.querySelectorAll('.style-chip').forEach(chip => chip.classList.remove('is-disabled'));
+    return;
+  }
+  const fixedHexes = [...AppState.anchors, ...AppState.palette.filter((_, i) => AppState.locked[i])];
+  let currentDisallowed = false;
+  document.querySelectorAll('.style-chip[data-style]').forEach(chip => {
+    const input = chip.querySelector('input[name="style-preset"]');
+    if (!input) return;
+    if (!styleChipOriginalTitles.has(chip)) styleChipOriginalTitles.set(chip, chip.title);
+    const disallowed = !StyleEngine.isCompatibleWithFixedColors(chip.dataset.style, fixedHexes);
+    input.disabled = disallowed;
+    chip.classList.toggle('is-disabled', disallowed);
+    chip.title = disallowed
+      ? '目前的錨點色／鎖定色跟這個風格差太多，暫不可用'
+      : styleChipOriginalTitles.get(chip);
+    if (disallowed && input.checked) currentDisallowed = true;
+  });
+  if (currentDisallowed) {
+    AppState.options.stylePreset = 'none';
+    const noneRadio = document.querySelector('input[name="style-preset"][value="none"]');
+    if (noneRadio) {
+      noneRadio.checked = true;
+      document.querySelectorAll('.style-chip').forEach(chip => chip.classList.toggle('active', chip.contains(noneRadio)));
+    }
+    if (AppState.palette.length) applyStyleAndRedraw();
+  }
+}
+
 /** 圖片模式下，只要有鎖定色，就提示可以把它們當錨點色帶去憑空生成。 */
 function updateCarryLocksVisibility() {
   const box = document.getElementById('carry-locks-action');
@@ -1019,6 +1057,7 @@ function carryLockedColorsToScratch() {
 
 function updateModeDescription() {
   updateStyleSectionVisibility();
+  updateStyleAvailability();
   if (!$genModeDesc) return;
   const { genSource, genAlgo } = AppState.options;
   let key;

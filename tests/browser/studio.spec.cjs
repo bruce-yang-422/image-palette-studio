@@ -23,7 +23,10 @@ test('all generation entry points retain locked colors; anchors accept RGB and H
   await page.goto('./');
   await choose(page, 'gen-source', 'scratch');
   await choose(page, 'swatch-count', '8');
-  const locked = await page.evaluate(() => AppState.palette[7]);
+  // Pin the locked slot to a color compatible with every style exercised below —
+  // styles now disable themselves against a locked/anchor color they clash with.
+  const locked = '#a8a29b';
+  await page.evaluate((hex) => { AppState.palette[7] = hex; AppState.basePalette[7] = hex; updateAllUI(); }, locked);
   await page.locator('.swatch-btn-lock').nth(7).click();
   for (const action of [
     () => page.locator('#btn-scratch-regen').click(),
