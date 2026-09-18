@@ -110,20 +110,12 @@ const AccessibilityPanel=(()=>{
     if(label) label.textContent=hex?`${index+1} · ${hex.toUpperCase()}`:'—';
   }
 
-  /** 自動挑選色票中 CIE76 ΔE 最大的兩色，較深的一色當前景（文字）。 */
+  /** 自動挑選色票中 CIE76 ΔE 最大的兩色（最鮮明的配對），較深的一色當前景（文字）。 */
   function autoPick() {
     if(!palette.length) return;
     if(palette.length<2) { fgIndex=0;bgIndex=0; return; }
-    let best=-1;
-    for(let i=0;i<palette.length;i++) {
-      for(let j=i+1;j<palette.length;j++) {
-        const d=ColorMath.deltaE76(palette[i],palette[j]);
-        if(d>best) { best=d; fgIndex=i; bgIndex=j; }
-      }
-    }
-    if(ColorConvert.hexToHsl(palette[fgIndex]).l>ColorConvert.hexToHsl(palette[bgIndex]).l) {
-      [fgIndex,bgIndex]=[bgIndex,fgIndex];
-    }
+    const pair = pickAutoPairIndexes(palette);
+    fgIndex=pair.fgIndex; bgIndex=pair.bgIndex;
   }
 
   function update(colors) {

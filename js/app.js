@@ -920,8 +920,23 @@ function applyStyleAndRedraw() {
   updateAllUI();
 }
 
-/** Project the original palette, then merge exact user colors and locked slots. */
-function composePalette(basePalette, preserveLocked = true) {
+/**
+ * 算出每個槽位最終是否為「固定色」（鎖定色或主色錨點，不受風格投影／對比鎖定調整）。
+ * 主色錨點是跳過鎖定槽後，依序填入前 N 個未鎖定槽，所以不能單純用 index < anchors.length 判斷。
+ */
+function computeFixedSlotMask(swatchCount, preserveLocked) {
+  const { genSource } = AppState.options;
+  const fixed = new Array(swatchCount).fill(false);
+  let anchorIndex = 0;
+  for (let i = 0; i < swatchCount; i++) {
+    if (preserveLocked && AppState.locked[i] && AppState.palette[i]) { fixed[i] = true; continue; }
+    if (genSource === 'scratch' && anchorIndex < AppState.anchors.length) { fixed[i] = true; anchorIndex++; }
+  }
+  return fixed;
+}
+
+/** 對指定的 basePalette 做一次投影＋合併鎖定色／主色錨點，回傳最終色票及各槽是否為固定色。 */
+function projectPaletteOnce(basePalette, preserveLocked) {
   const { genSource, stylePreset } = AppState.options;
   // Pass the real displayed locked colors (not the stale pre-lock base value) so a
   // style's random accent/pop slot can echo the locked hue instead of inventing one.
@@ -932,39 +947,50 @@ function composePalette(basePalette, preserveLocked = true) {
   let projected = genSource === 'scratch'
     ? StyleEngine.projectPalette(basePalette, stylePreset, lockedHexes) : [...basePalette];
   if (genSource === 'scratch' && AppState.options.roleDistribution) projected = StyleEngine.assignRoles(projected,stylePreset);
+  const fixed = computeFixedSlotMask(basePalette.length, preserveLocked);
   let anchorIndex = 0;
   const result = projected.map((hex, i) => {
     if (preserveLocked && AppState.locked[i] && AppState.palette[i]) return AppState.palette[i];
-    if (genSource === 'scratch' && anchorIndex < AppState.anchors.length) {
-      return AppState.anchors[anchorIndex++];
-    }
+    if (fixed[i]) return AppState.anchors[anchorIndex++]; // fixed 但非 locked，代表這裡是主色錨點
     return ColorConvert.parseColor(hex) ?? '#808080';
   });
-  if (genSource === 'scratch' && AppState.options.contrastLock !== 'none') {
-    const fixed = result.map((_, i) => (preserveLocked && AppState.locked[i]) || i < AppState.anchors.length);
-    return enforceContrastLock(result, fixed, stylePreset, AppState.options.contrastLock);
-  }
-  return result;
+  return { result, fixed };
+}
+
+/** Project the original palette, then merge exact user colors and locked slots. */
+function composePalette(basePalette, preserveLocked = true) {
+  const { genSource, stylePreset, contrastLock } = AppState.options;
+  const { result, fixed } = projectPaletteOnce(basePalette, preserveLocked);
+  if (genSource !== 'scratch' || contrastLock === 'none') return result;
+  return enforceContrastLock(result, fixed, stylePreset, contrastLock);
 }
 
 /**
- * 鎖定對比等級時，找出「自動配對規則」會選中的兩槽，若對比不足就在非固定（非鎖定／非錨點）
- * 的那一槽沿明度軸微調至達標；兩槽都固定則無法調整，交由 updateStyleAvailability() 的
- * 風格相容性檢查事先擋下（灰顯該風格），這裡直接維持原色。
+ * 鎖定對比等級時，只保證「面板實際顯示的那一對」（自動配對規則挑的色差最大兩色）達標，不
+ * 強求整組色票任兩色都達標——超過 2 色時，要求任兩色 pairwise 對比都達到 AA 以上在數學上
+ * 幾乎不可能同時成立（除非色票整個黑白極端化，失去配色意義），所以這不是這個功能合理的目標
+ * 範圍。在非固定（非鎖定／非主色錨點）槽沿明度軸二分搜尋，讓它跟對方達標；兩槽都固定則無法
+ * 調整，交由 updateStyleAvailability() 的風格相容性檢查事先擋下（灰顯該風格）。
+ * 調整只動明度不動色相／彩度，但被調整的槽若被推到極端明度，可能讓它跟「第三槽」的色差反而
+ * 變得更大，導致調整後「色差最大」配對的冠軍換成沒被驗證過的新組合，所以要重新檢查一次，
+ * 不一致就用新配對再調整一輪；設嘗試上限避免在兩組配對之間來回震盪。
  */
 function enforceContrastLock(palette, fixed, stylePreset, level) {
   const target = level === 'AAA' ? 7 : 4.5;
-  const pair = AccessibilityPanel.pickAutoPairIndexes(palette);
-  if (!pair) return palette;
-  const { fgIndex, bgIndex } = pair;
-  if (ColorConvert.contrastRatio(palette[fgIndex], palette[bgIndex]) >= target) return palette;
-  const next = [...palette];
-  if (!fixed[bgIndex]) {
-    next[bgIndex] = StyleEngine.adjustLightnessForContrast(palette[bgIndex], palette[fgIndex], target, stylePreset).hex;
-  } else if (!fixed[fgIndex]) {
-    next[fgIndex] = StyleEngine.adjustLightnessForContrast(palette[fgIndex], palette[bgIndex], target, stylePreset).hex;
+  let current = palette;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const pair = AccessibilityPanel.pickAutoPairIndexes(current);
+    if (!pair) return current;
+    const { fgIndex, bgIndex } = pair;
+    if (ColorConvert.contrastRatio(current[fgIndex], current[bgIndex]) >= target) return current;
+    const adjustable = !fixed[bgIndex] ? bgIndex : (!fixed[fgIndex] ? fgIndex : -1);
+    if (adjustable === -1) return current; // 兩槽都固定，無法調整
+    const against = adjustable === bgIndex ? fgIndex : bgIndex;
+    const next = [...current];
+    next[adjustable] = StyleEngine.adjustLightnessForContrast(current[adjustable], current[against], target, stylePreset).hex;
+    current = next;
   }
-  return next;
+  return current;
 }
 
 // ─────────────────────────────────────────────
@@ -1048,10 +1074,8 @@ function updateStyleAvailability() {
   const contrastLock = AppState.options.contrastLock;
   const pair = contrastLock !== 'none' && AppState.palette.length
     ? AccessibilityPanel.pickAutoPairIndexes(AppState.palette) : null;
-  const pairFixed = pair && {
-    a: AppState.locked[pair.fgIndex] || pair.fgIndex < AppState.anchors.length,
-    b: AppState.locked[pair.bgIndex] || pair.bgIndex < AppState.anchors.length,
-  };
+  const fixedSlots = pair ? computeFixedSlotMask(AppState.palette.length, true) : null;
+  const pairFixed = pair && { a: fixedSlots[pair.fgIndex], b: fixedSlots[pair.bgIndex] };
   let currentDisallowed = false;
   document.querySelectorAll('.style-chip[data-style]').forEach(chip => {
     const input = chip.querySelector('input[name="style-preset"]');
