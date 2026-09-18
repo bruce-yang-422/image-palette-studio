@@ -149,7 +149,12 @@ const CanvasRenderer = (() => {
   }
   function render(canvas,img,palette,opts={}) {
     const scene=buildScene(img,palette,opts);
-    const scale=Math.min(1,8192/scene.width,8192/scene.height,Math.sqrt(16000000/(scene.width*scene.height)));
+    // Render at devicePixelRatio so text and edges stay sharp on HiDPI screens — the bitmap
+    // would otherwise sit at the 1200-logical-px scene size and get stretched to fill more
+    // physical pixels than it has, blurring fine detail like swatch labels.
+    const dpr=(typeof window!=='undefined' && window.devicePixelRatio) || 1;
+    const perfCap=Math.min(8192/scene.width,8192/scene.height,Math.sqrt(16000000/(scene.width*scene.height)));
+    const scale=Math.min(Math.max(1,dpr),Math.max(1,perfCap));
     return paint(canvas,scene,scale);
   }
   const renderSwatchOnly=(canvas,palette,opts={})=>render(canvas,null,palette,opts);
@@ -160,8 +165,12 @@ const CanvasRenderer = (() => {
     return paint(document.createElement('canvas'),scene,scale);
   }
   function fitToContainer(canvas,container) {
-    const scale=Math.min(1,Math.max(1,container.clientWidth-48)/canvas.width,Math.max(1,container.clientHeight-48)/canvas.height);
-    canvas.style.width=`${Math.round(canvas.width*scale)}px`;canvas.style.height=`${Math.round(canvas.height*scale)}px`;
+    // canvas.width/height may be rendered at devicePixelRatio (see render()), so size the
+    // CSS box off the scene's logical dimensions, not the bitmap's pixel dimensions.
+    const scene=canvas.paletteScene;
+    const logicalW=scene?.width ?? canvas.width, logicalH=scene?.height ?? canvas.height;
+    const scale=Math.min(1,Math.max(1,container.clientWidth-48)/logicalW,Math.max(1,container.clientHeight-48)/logicalH);
+    canvas.style.width=`${Math.round(logicalW*scale)}px`;canvas.style.height=`${Math.round(logicalH*scale)}px`;
   }
   // Compatibility with the older rectangular sampler; source pins use the full source image.
   function computeSize(img,aspectRatio,swatchLayout) {
