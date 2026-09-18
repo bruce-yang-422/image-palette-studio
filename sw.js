@@ -1,7 +1,7 @@
 'use strict';
 
 // The deployment script replaces this version with a hash of all app assets.
-const VERSION = '2026-09-18-3';
+const VERSION = '2026-09-18-4';
 const SCOPE = new URL('./', self.location.href);
 const PREFIX = `image-palette-studio:${SCOPE.pathname}:`;
 const CACHE = PREFIX + VERSION;
@@ -14,7 +14,7 @@ const ASSETS = [
   'js/components/upload.js', 'js/components/swatch-list.js',
   'js/components/colorblind-sim.js', 'js/components/gradient-gen.js',
   'js/components/export-ui.js', 'js/components/color-sampler.js',
-  'js/app.js', 'js/pwa.js', 'js/theme.js', 'js/components/image-pins.js',
+  'js/locales.js', 'js/i18n.js', 'js/app.js', 'js/pwa.js', 'js/theme.js', 'js/components/image-pins.js',
   'js/components/layout-gallery.js', 'js/components/accessibility.js',
 ].map(path => new URL(path, SCOPE).href);
 

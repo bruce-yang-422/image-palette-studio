@@ -6,7 +6,7 @@ import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = path.join(root, 'dist');
 await mkdir(output, { recursive: true });
-for (const entry of ['index.html', '404.html', 'css', 'js', 'icons', 'manifest.webmanifest']) {
+for (const entry of ['index.html', '404.html', 'css', 'js', 'icons', 'manifest.webmanifest', 'LICENSE']) {
   await cp(path.join(root, entry), path.join(output, entry), { recursive: true });
 }
 const worker = await readFile(path.join(root, 'sw.js'), 'utf8');

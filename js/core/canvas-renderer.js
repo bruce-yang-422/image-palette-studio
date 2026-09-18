@@ -62,7 +62,11 @@ const CanvasRenderer = (() => {
       palette.forEach((hex,i)=>swatch(hex,i,x+(vertical?0:i*(step+gap)),y+(vertical?i*(step+gap):0),vertical?w:step,vertical?step:h));
     }
     if (!img) {
-      strip(30,30,width-60,height-60);
+      if (opts.roleDistribution && n >= 3) {
+        let x=30;
+        const usable=width-60-gap*(n-1);
+        StyleEngine.roles(n).forEach((role,i)=>{ const w=usable*role.weight; swatch(palette[i],i,x,30,w,height-60); x+=w+gap; });
+      } else strip(30,30,width-60,height-60);
       return scene;
     }
     if (horizontal) {

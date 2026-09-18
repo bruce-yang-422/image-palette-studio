@@ -15,7 +15,10 @@ A browser-based palette tool built with vanilla HTML, CSS, and JavaScript for im
 - 淺色／暗色／跟隨系統主題，圖示式滑動 Pill 切換並記憶偏好 / Light, dark, and system theme icons with a sliding-pill switch and saved preference.
 - 七款版型縮圖畫廊、可調色票佔比與引線標籤編輯，以及色盲模擬 / Seven-preset layout gallery with live thumbnails, adjustable swatch ratio, callout label editing, and color blindness simulation.
 - 文字對比檢測（WCAG 對比值與等級）/ Text contrast checker with WCAG ratio and grade.
-- PNG、SVG、ASE、ACO、JSON 與 CSS 匯出，以及 CSS 漸層生成 / Palette exports and CSS gradient generation.
+- PNG／JPG（1×／2×／4×）、完整 SVG 合成、ASE、ACO、JSON、CSS、Tailwind v3／v4 匯出，以及 CSS 漸層生成 / High-resolution raster, editable SVG composition, Adobe swatches, tokens and code exports.
+- 十種 Oklch 風格與 sRGB 色域映射、可選的 60-30-10 配色角色／面積配置 / Oklch styles, hue-preserving sRGB gamut mapping and optional 60-30-10 color roles.
+- 原圖局部邊緣吸附開關；方向鍵維持逐像素取色 / Optional edge snapping with precise keyboard sampling.
+- 繁體中文、英文、日文、韓文、泰文、越南文與西班牙文介面，語言偏好記憶及離線使用 / Seven interface languages with saved preferences and offline access.
 - 可安裝 PWA、離線使用與 GitHub Pages 子路徑部署 / Installable PWA, offline use, and GitHub Pages subpath support.
 
 ## 本機執行 / Run locally
@@ -59,7 +62,7 @@ The app uses system font fallbacks and no third-party runtime resources. After t
 ```sh
 npm ci
 npm test
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 npm run test:browser
 npm run build
 ```
@@ -72,11 +75,13 @@ GitHub Pages 發布步驟：
 2. 開啟儲存庫 **Settings → Pages → Build and deployment → Source**，選擇 **GitHub Actions**。
 3. 在 **Actions → Test and deploy Pages** 執行工作流程，或再次推送至 `main`。流程會執行測試、產生 `dist/`，再發布至 Pages；Pull Request 只測試，不發布。
 4. 使用部署工作輸出的網址驗收；本儲存庫預期網址為 <https://bruce-yang-422.github.io/image-palette-studio/>。
-5. 在實際網址逐項確認：資源無 404、上傳／拖放／貼上、3／4／5／6／8 色生成與鎖定、圖片與純色票預覽、色盲預覽、漸層複製，以及 PNG／SVG／ASE／ACO／JSON／CSS 下載。等待「可離線使用」後，斷網並重新整理，重做生成、上傳與匯出。
+5. 在實際網址逐項確認：資源無 404、上傳／拖放／貼上、3／4／5／6／8 色生成與鎖定、圖片與純色票預覽、色盲預覽、漸層複製，以及 PNG／JPG／SVG／ASE／ACO／JSON／CSS／Tailwind 下載。等待「可離線使用」後，斷網並重新整理，重做生成、上傳與匯出。
 
 流程依 [GitHub Pages 自訂工作流程文件](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages) 設定。尚未推送或驗收實際 Pages 網址時，不應視為部署完成。
 
-瀏覽器測試使用 Chromium 驗證儲存庫子路徑、根目錄與手機尺寸、圖片輸入、鎖定主色、風格還原、離線重新載入與六種匯出。Android 實機安裝、其他瀏覽器及 Adobe 匯入相容性仍需人工驗收。
+本次 Node 測試 12 項通過；Chromium／Firefox／WebKit 共 33 項瀏覽器案例通過，Windows WebKit 離線重新載入案例因引擎內部錯誤明確略過 1 項。測試涵蓋七語系、Oklch、60-30-10、吸附、七款版型、八種匯出及離線使用。實際裝置與 Adobe／Figma 匯入仍需驗收，詳見 [發布與實機驗收紀錄](docs/release-validation.md)。
+
+可執行 `npm run benchmark` 重現 12MP／24MP 大圖量測；目前結果及限制見 [效能基準](docs/benchmarks/README.md)。
 
 ## 專案結構 / Project structure
 
@@ -89,6 +94,8 @@ js/components/   介面元件 / UI components
 js/core/         色彩提取、配色、渲染與匯出 / Extraction, generation, rendering, and export
 js/utils/        色彩轉換與數學工具 / Color conversions and math
 js/theme.js      主題切換與偏好記憶 / Theme toggle and saved preference
+js/i18n.js       介面翻譯與語言偏好 / UI localization and language preference
+js/locales.js    六種譯文（來源語言為繁體中文）/ Translation catalog
 js/pwa.js        安裝提示與版本更新流程 / Install prompt and update flow
 docs/            概念與規格文件 / Concept and specification
 icons/           PWA 圖示 / App icons
@@ -100,4 +107,6 @@ tests/           核心及瀏覽器回歸測試 / Core and browser tests
 
 詳細規劃請參閱 [專案概念與規格 / Concept and specification](docs/image_palette_studio_概念.md)。
 
-尚未完成的規格為多語系介面切換。原生螢幕滴管的實際 OS 選色、Android 安裝及跨瀏覽器實機操作仍待人工驗收。
+已依使用者要求保留原有系統字型，不新增手寫字型設定。本次修改尚未發布至 Pages；原生螢幕滴管、Android／iOS 安裝與第三方軟體匯入仍待外部驗收。
+
+本專案採用 [MIT License](LICENSE)。 / Licensed under the MIT License.

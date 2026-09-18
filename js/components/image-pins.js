@@ -75,9 +75,29 @@ const ImagePins = (() => {
     return weight ? ColorConvert.rgbToHex(r/weight, g/weight, b/weight) : null;
   }
 
+  // Search a bounded original-pixel window; transparency is not treated as a dark edge.
+  function snapPoint(point) {
+    if (!document.getElementById('snap-edges').checked || !image) return point;
+    const x=clamp(Math.floor(point.x*source.width),0,source.width-1), y=clamp(Math.floor(point.y*source.height),0,source.height-1);
+    const radius=6, left=Math.max(0,x-radius-1), top=Math.max(0,y-radius-1);
+    const w=Math.min(source.width,left+radius*2+3)-left, h=Math.min(source.height,top+radius*2+3)-top;
+    const data=ctx.getImageData(left,top,w,h).data;
+    const lum=(px,py)=>{const i=(py*w+px)*4;return data[i+3]<128?null:.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];};
+    let best=24, result=point;
+    for(let py=1;py<h-1;py++) for(let px=1;px<w-1;px++) {
+      const distance=Math.hypot(left+px-x,top+py-y);
+      if(distance>radius || lum(px,py)===null) continue;
+      const neighbors=[lum(px-1,py),lum(px+1,py),lum(px,py-1),lum(px,py+1)];
+      if(neighbors.some(v=>v===null)) continue;
+      const score=Math.hypot(neighbors[1]-neighbors[0],neighbors[3]-neighbors[2])/(1+distance*.4);
+      if(score>best) {best=score;result={x:(left+px+.5)/source.width,y:(top+py+.5)/source.height};}
+    }
+    return result;
+  }
+
   function pointAt(event) {
     const rect = source.getBoundingClientRect();
-    return { x: clamp((event.clientX-rect.left)/rect.width, 0, 1), y: clamp((event.clientY-rect.top)/rect.height, 0, 1) };
+    return snapPoint({ x: clamp((event.clientX-rect.left)/rect.width, 0, 1), y: clamp((event.clientY-rect.top)/rect.height, 0, 1) });
   }
 
   function move(index, point) {
@@ -167,6 +187,6 @@ const ImagePins = (() => {
     document.getElementById('pin-selection').textContent = `選取色槽 ${s.selectedSlot+1}${s.locked[s.selectedSlot] ? '（已鎖定）' : ''}`;
     fit();
   }
-  return { init, setImage, sample, sync };
+  return { init, setImage, sample, snapPoint, sync };
 })();
 window.ImagePins = ImagePins;

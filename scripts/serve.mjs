@@ -23,4 +23,4 @@ http.createServer(async (req, res) => {
   } catch {
     res.writeHead(404).end('Not found');
   }
-}).listen(4173, '127.0.0.1');
+}).listen(Number(process.env.PORT || 4173), '127.0.0.1');

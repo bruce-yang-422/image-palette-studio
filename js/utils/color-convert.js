@@ -204,10 +204,26 @@ const ColorConvert = (() => {
    * @returns {string} HEX
    */
   function oklchToHex(L, C, h) {
-    const a = C * Math.cos(h * Math.PI / 180);
-    const b_ = C * Math.sin(h * Math.PI / 180);
-    const { r, g, b } = oklabToLinearRgb(L, a, b_);
+    const { r, g, b } = gamutMapOklch(L, C, h).rgb;
     return rgbToHex(linearToSrgb(r), linearToSrgb(g), linearToSrgb(b));
+  }
+
+  // Reduce chroma at fixed perceptual lightness and hue instead of clipping RGB channels.
+  function gamutMapOklch(L, C, h) {
+    if (![L, C, h].every(Number.isFinite)) throw new Error('Invalid Oklch color');
+    L = Math.max(0, Math.min(1, L)); C = Math.max(0, C); h = ((h % 360) + 360) % 360;
+    const rgbAt = chroma => oklabToLinearRgb(L, chroma * Math.cos(h * Math.PI / 180), chroma * Math.sin(h * Math.PI / 180));
+    const inside = rgb => Object.values(rgb).every(v => v >= -1e-7 && v <= 1 + 1e-7);
+    let rgb = rgbAt(C);
+    if (!inside(rgb)) {
+      let low = 0, high = C;
+      for (let i = 0; i < 28; i++) {
+        const mid = (low + high) / 2;
+        if (inside(rgbAt(mid))) low = mid; else high = mid;
+      }
+      C = low; rgb = rgbAt(C);
+    }
+    return { L, C, h, rgb };
   }
 
   // ─────────────────────────────────────────────
@@ -297,6 +313,7 @@ const ColorConvert = (() => {
     parseColor,
     rgbToOklch,
     oklchToHex,
+    gamutMapOklch,
     hexToAllFormats,
     relativeLuminance,
     contrastColor,

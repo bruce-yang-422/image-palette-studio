@@ -2,11 +2,13 @@
   "name": "image-palette-studio",
   "version": "0.2.0",
   "private": true,
+  "license": "MIT",
   "description": "A static, offline image palette studio",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
     "test:browser": "node scripts/build.mjs && playwright test",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "benchmark": "node scripts/build.mjs && node scripts/benchmark.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0"

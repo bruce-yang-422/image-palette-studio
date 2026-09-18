@@ -2082,3 +2082,12 @@ body::after {
 #export-dimensions { margin:6px 0; }
 #main-canvas,#source-canvas,#sample-pins,#gradient-bar,.swatch-color,.layout-thumbnail { filter:var(--vision-filter,none); }
 @media (max-width:700px) { .layout-preset-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+
+.language-control { min-width:0; }
+#language-select { max-width:125px; }
+@media (max-width:600px) {
+  :root { --header-h:84px; }
+  .header-actions { flex-wrap:wrap; justify-content:flex-end; max-width:calc(100% - 44px); }
+  #language-select { max-width:96px; }
+  #btn-colorblind-toggle > span { display:none; }
+}

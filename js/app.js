@@ -3,11 +3,11 @@
  * Image Palette Studio — 主應用程式進入點 v2
  *
  * 生成流程（§4）：
- *  ┌─ 圖片提取 ─── K-means++ → [風格投影 optional]
+ *  ┌─ 圖片提取 ─── K-means++ → 原图取樣（保留來源色）
  *  │
- *  └─ 憑空生成 ─── 錨點色 → Chaos / Harmony → Style Projection
+ *  └─ 憑空生成 ─── 錨點色 → Chaos / Harmony → Oklch Style / Optional Roles
  *                              │
- *                         Locked Merge → Gamut Clamp → Final Palette
+ *                         sRGB Gamut Mapping → Exact Color Merge → Final Palette
  *                              │
  *                ┌────────────┼─────────────┐
  *              Canvas       Gradient      Export
@@ -81,6 +81,7 @@ const AppState = {
     radius:       0,
     hexLabel:     'none',
     labelFormat:  'hex',
+    roleDistribution: false,
   },
 };
 
@@ -154,6 +155,11 @@ function initComponents() {
   ColorblindSim.init();
   GradientGen.init();
   AccessibilityPanel.init();
+  document.getElementById('role-distribution').addEventListener('change', event => {
+    AppState.options.roleDistribution = event.target.checked;
+    applyStyleAndRedraw();
+  });
+  window.addEventListener('languagechange', () => { updateAllUI(); });
   LayoutGallery.init({getState:()=>AppState,onChange:changes=>{
     Object.assign(AppState.options,changes);
     redraw();
@@ -271,6 +277,7 @@ function syncOptionControls() {
   $gapInput.value = AppState.options.gap; $gapVal.textContent = `${AppState.options.gap}px`;
   $radiusInput.value = AppState.options.radius; $radiusVal.textContent = `${AppState.options.radius}px`;
   document.getElementById('label-format').value=AppState.options.labelFormat;
+  document.getElementById('role-distribution').checked=!!AppState.options.roleDistribution;
   LayoutGallery.sync();
 }
 
@@ -917,8 +924,9 @@ function composePalette(basePalette, preserveLocked = true) {
     ? basePalette.map((_, i) => (AppState.locked[i] && AppState.palette[i]) || null)
     : [];
   // Styles only ever apply in scratch mode — image extraction always keeps true photo colors.
-  const projected = genSource === 'scratch'
+  let projected = genSource === 'scratch'
     ? StyleEngine.projectPalette(basePalette, stylePreset, lockedHexes) : [...basePalette];
+  if (genSource === 'scratch' && AppState.options.roleDistribution) projected = StyleEngine.assignRoles(projected,stylePreset);
   let anchorIndex = 0;
   return projected.map((hex, i) => {
     if (preserveLocked && AppState.locked[i] && AppState.palette[i]) return AppState.palette[i];
@@ -942,6 +950,7 @@ function updateAllUI() {
   SwatchListComponent.render(AppState.palette, AppState.locked, AppState.selectedSlot, anchorCoverage());
   GradientGen.update(AppState.palette);
   AccessibilityPanel.update(AppState.palette);
+  document.getElementById('role-summary').hidden = AppState.options.genSource !== 'scratch' || !AppState.options.roleDistribution;
   ImagePins.sync();
   redraw();
   updateModeDescription();
@@ -999,7 +1008,7 @@ function updateStyleAvailability() {
   document.querySelectorAll('.style-chip[data-style]').forEach(chip => {
     const input = chip.querySelector('input[name="style-preset"]');
     if (!input) return;
-    if (!styleChipOriginalTitles.has(chip)) styleChipOriginalTitles.set(chip, chip.title);
+    if (!styleChipOriginalTitles.has(chip)) styleChipOriginalTitles.set(chip, window.I18n?.source(chip,'title') ?? chip.title);
     const disallowed = !StyleEngine.isCompatibleWithFixedColors(chip.dataset.style, fixedHexes);
     input.disabled = disallowed;
     chip.classList.toggle('is-disabled', disallowed);

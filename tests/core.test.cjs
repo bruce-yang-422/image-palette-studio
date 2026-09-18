@@ -13,6 +13,56 @@ function context(app = false) {
   return scope;
 }
 
+test('Oklch gamut mapping keeps hue and lightness while reducing out-of-gamut chroma', () => {
+  const {ColorConvert:c,StyleEngine:s}=context().window;
+  for(const L of [.15,.5,.85]) for(let h=0;h<360;h+=15) {
+    const mapped=c.gamutMapOklch(L,.45,h);
+    assert.equal(mapped.L,L); assert.equal(mapped.h,h); assert.ok(mapped.C<.45);
+    assert.ok(Object.values(mapped.rgb).every(v=>v>=-1e-7 && v<=1+1e-7));
+    const roundtrip=c.hexToAllFormats(c.oklchToHex(L,.45,h)).oklch;
+    assert.ok(Math.abs(roundtrip.L-L)<.006);
+    if(roundtrip.C>.02) assert.ok(Math.abs(((roundtrip.h-h+540)%360)-180)<3);
+  }
+  assert.throws(()=>c.gamutMapOklch(NaN,.1,30));
+  for(const key of s.getStyleKeys().filter(key=>key!=='none')) {
+    const profile=s.OKLCH_PROFILES[key];
+    for(const hex of ['#ff0000','#000000','#ffffff','#0022ff']) {
+      const projected=c.hexToAllFormats(s.projectColor(hex,key)).oklch;
+      assert.ok(projected.L>=profile.L[0]-.005 && projected.L<=profile.L[1]+.005,key);
+      assert.ok(projected.C<=profile.C[1]+.005,key);
+    }
+  }
+});
+
+test('60-30-10 roles have exact area shares and preserve fixed colors after projection', () => {
+  const scope=context(true), {StyleEngine:s,ColorConvert:c}=scope.window;
+  for(const count of [3,4,5,6,8]) {
+    const roles=s.roles(count);
+    assert.equal(roles[0].weight,.6);assert.equal(roles[count-1].weight,.1);
+    assert.ok(Math.abs(roles.reduce((sum,r)=>sum+r.weight,0)-1)<1e-12);
+    const colors=s.assignRoles(Array(count).fill('#668866'));
+    assert.ok(c.hexToAllFormats(colors[0]).oklch.L>c.hexToAllFormats(colors.at(-1)).oklch.L);
+  }
+  vm.runInContext(`AppState.options.roleDistribution=true;AppState.options.genSource='scratch';
+    AppState.palette=['#112233','#ffffff','#000000'];AppState.locked=[true,false,false];AppState.anchors=['#abcdef'];`,scope);
+  const result=Array.from(vm.runInContext("composePalette(['#ff0000','#00ff00','#0000ff'])",scope));
+  assert.equal(result[0],'#112233');assert.equal(result[1],'#abcdef');
+  vm.runInContext("AppState.options.genSource='image';AppState.locked=[];",scope);
+  assert.deepEqual(Array.from(vm.runInContext("composePalette(['#ff0000','#00ff00','#0000ff'])",scope)),['#ff0000','#00ff00','#0000ff']);
+});
+
+test('all locale messages contain six translations with matching placeholders', () => {
+  const scope=vm.createContext({window:{}});
+  vm.runInContext(readFileSync(path.join(__dirname,'../js/locales.js'),'utf8'),scope);
+  for(const [key,translations] of Object.entries(scope.window.PaletteMessages)) {
+    assert.equal(translations.length,6,key);
+    for(const translation of translations) {
+      assert.ok(translation.trim(),key);
+      assert.deepEqual([...translation.matchAll(/\{\d+\}/g)].map(m=>m[0]).sort(),[...key.matchAll(/\{\d+\}/g)].map(m=>m[0]).sort(),key);
+    }
+  }
+});
+
 test('HEX / RGB / HSL parsing accepts supported colors and rejects invalid values', () => {
   const { ColorConvert: c } = context().window;
   for (const [input, expected] of [
