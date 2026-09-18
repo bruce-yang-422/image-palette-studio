@@ -95,7 +95,7 @@ js/core/         色彩提取、配色、渲染與匯出 / Extraction, generatio
 js/utils/        色彩轉換與數學工具 / Color conversions and math
 js/theme.js      主題切換與偏好記憶 / Theme toggle and saved preference
 js/i18n.js       介面翻譯與語言偏好 / UI localization and language preference
-js/locales.js    六種譯文（來源語言為繁體中文）/ Translation catalog
+js/locales.js    七種譯文（來源語言為繁體中文）/ Translation catalog
 js/pwa.js        安裝提示與版本更新流程 / Install prompt and update flow
 docs/            概念與規格文件 / Concept and specification
 icons/           PWA 圖示 / App icons
