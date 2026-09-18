@@ -171,6 +171,72 @@ const StyleEngine = (() => {
     return fixedHexes.every(hex => matchesStyle(hex, styleKey));
   }
 
+  const CONTRAST_MIN = { AA: 4.5, AAA: 7 };
+
+  /**
+   * 在風格的 Oklch 明度邊界內（不動色相／彩度），二分搜尋調整 hex 的明度，
+   * 使其與 against 的 WCAG 對比達到 targetRatio。找不到就回傳邊界內能達到的最佳結果。
+   * @returns {{hex:string, ratio:number}}
+   */
+  function adjustLightnessForContrast(hex, against, targetRatio, styleKey = 'none') {
+    const profile = OKLCH_PROFILES[styleKey];
+    const [lo, hi] = profile ? profile.L : [0, 1];
+    const { C, h } = ColorConvert.hexToAllFormats(hex).oklch;
+    const ratioAt = L => ColorConvert.contrastRatio(ColorConvert.oklchToHex(L, C, h), against);
+    const darker = ratioAt(lo), lighter = ratioAt(hi);
+    const goLighter = lighter >= darker;
+    let target = goLighter ? hi : lo;
+    if (ratioAt(target) < targetRatio) {
+      // 邊界內無法達標，取較好的一端
+      const bestL = goLighter ? hi : lo;
+      const bestHex = ColorConvert.oklchToHex(bestL, C, h);
+      return { hex: bestHex, ratio: ratioAt(bestL) };
+    }
+    let a = goLighter ? lo : hi, b = target;
+    for (let i = 0; i < 24; i++) {
+      const mid = (a + b) / 2;
+      if (ratioAt(mid) >= targetRatio) b = mid; else a = mid;
+    }
+    const resultHex = ColorConvert.oklchToHex(b, C, h);
+    return { hex: resultHex, ratio: ratioAt(b) };
+  }
+
+  /**
+   * 風格是否可能讓兩個固定色相（不可調整的鎖定/錨點槽）達到鎖定的對比等級。
+   * 若其中一槽仍可調整（非固定），一律視為可達標（由 adjustLightnessForContrast 負責調整），
+   * 只有「兩槽都固定」時才需要事先判斷是否無解。
+   * @param {string} level 'AA' | 'AAA'
+   */
+  function canReachContrastLock(styleKey, hexA, hexB, level, aFixed, bFixed) {
+    const target = CONTRAST_MIN[level];
+    if (!target) return true;
+    if (aFixed && bFixed) return ColorConvert.contrastRatio(hexA, hexB) >= target;
+    const profile = OKLCH_PROFILES[styleKey];
+    const [lo, hi] = profile ? profile.L : [0, 1];
+    if (aFixed) {
+      const { C, h } = ColorConvert.hexToAllFormats(hexB).oklch;
+      const best = Math.max(
+        ColorConvert.contrastRatio(ColorConvert.oklchToHex(lo, C, h), hexA),
+        ColorConvert.contrastRatio(ColorConvert.oklchToHex(hi, C, h), hexA)
+      );
+      return best >= target;
+    }
+    if (bFixed) {
+      const { C, h } = ColorConvert.hexToAllFormats(hexA).oklch;
+      const best = Math.max(
+        ColorConvert.contrastRatio(ColorConvert.oklchToHex(lo, C, h), hexB),
+        ColorConvert.contrastRatio(ColorConvert.oklchToHex(hi, C, h), hexB)
+      );
+      return best >= target;
+    }
+    // 兩槽都可調整：把其中一槽推到亮端、另一槽推到暗端（各自維持自己的 C/h），取理論最大對比
+    const oklchA = ColorConvert.hexToAllFormats(hexA).oklch;
+    const oklchB = ColorConvert.hexToAllFormats(hexB).oklch;
+    const lightHex = ColorConvert.oklchToHex(hi, oklchA.C, oklchA.h);
+    const darkHex = ColorConvert.oklchToHex(lo, oklchB.C, oklchB.h);
+    return ColorConvert.contrastRatio(lightHex, darkHex) >= target;
+  }
+
   // ─────────────────────────────────────────────
   // 公開 API
   // ─────────────────────────────────────────────
@@ -185,6 +251,8 @@ const StyleEngine = (() => {
     generateStylePalette,
     matchesStyle,
     isCompatibleWithFixedColors,
+    adjustLightnessForContrast,
+    canReachContrastLock,
 
     /** 取得所有風格鍵值列表 */
     getStyleKeys: () => Object.keys(STYLE_PRESETS),

@@ -584,6 +584,86 @@ window.PaletteMessages = {
     "Chênh lệch màu lớn nhất",
     "Mayor diferencia de color"
   ],
+  "鎖定對比等級": [
+    "Lock contrast level",
+    "コントラストレベルを固定",
+    "대비 등급 고정",
+    "ล็อกระดับความต่างสี",
+    "Khóa mức tương phản",
+    "Bloquear nivel de contraste"
+  ],
+  "不限制對比，色票可自由套用任何風格": [
+    "No contrast constraint; any style can be applied freely",
+    "コントラストを制限せず、どのスタイルも自由に適用できます",
+    "대비를 제한하지 않아 모든 스타일을 자유롭게 적용할 수 있습니다",
+    "ไม่จำกัดค่าความต่างสี สามารถใช้สไตล์ใดก็ได้อย่างอิสระ",
+    "Không giới hạn độ tương phản; có thể áp dụng mọi phong cách tự do",
+    "Sin restricción de contraste; se puede aplicar cualquier estilo libremente"
+  ],
+  "不鎖定": [
+    "Unlocked",
+    "固定しない",
+    "고정 안 함",
+    "ไม่ล็อก",
+    "Không khóa",
+    "Sin bloqueo"
+  ],
+  "生成與換風格時，自動挑選的兩色會保持在 AA 以上；達不到的風格會禁用": [
+    "When generating or switching styles, the auto-picked pair stays above AA; styles that can't reach it are disabled",
+    "生成やスタイル切替時、自動選択された2色はAA以上を維持します。到達できないスタイルは無効化されます",
+    "생성 또는 스타일 전환 시 자동 선택된 두 색은 AA 이상을 유지합니다. 도달할 수 없는 스타일은 비활성화됩니다",
+    "เมื่อสร้างหรือเปลี่ยนสไตล์ คู่สีที่เลือกอัตโนมัติจะรักษาระดับ AA ขึ้นไป สไตล์ที่ทำไม่ได้จะถูกปิดใช้งาน",
+    "Khi tạo hoặc đổi phong cách, cặp màu tự chọn sẽ giữ mức AA trở lên; phong cách không đạt sẽ bị vô hiệu hóa",
+    "Al generar o cambiar de estilo, el par elegido automáticamente se mantiene por encima de AA; los estilos que no lo logren se desactivan"
+  ],
+  "鎖定 AA": [
+    "Lock AA",
+    "AAを固定",
+    "AA 고정",
+    "ล็อก AA",
+    "Khóa AA",
+    "Bloquear AA"
+  ],
+  "生成與換風格時，自動挑選的兩色會保持在 AAA 以上；達不到的風格會禁用": [
+    "When generating or switching styles, the auto-picked pair stays above AAA; styles that can't reach it are disabled",
+    "生成やスタイル切替時、自動選択された2色はAAA以上を維持します。到達できないスタイルは無効化されます",
+    "생성 또는 스타일 전환 시 자동 선택된 두 색은 AAA 이상을 유지합니다. 도달할 수 없는 스타일은 비활성화됩니다",
+    "เมื่อสร้างหรือเปลี่ยนสไตล์ คู่สีที่เลือกอัตโนมัติจะรักษาระดับ AAA ขึ้นไป สไตล์ที่ทำไม่ได้จะถูกปิดใช้งาน",
+    "Khi tạo hoặc đổi phong cách, cặp màu tự chọn sẽ giữ mức AAA trở lên; phong cách không đạt sẽ bị vô hiệu hóa",
+    "Al generar o cambiar de estilo, el par elegido automáticamente se mantiene por encima de AAA; los estilos que no lo logren se desactivan"
+  ],
+  "鎖定 AAA": [
+    "Lock AAA",
+    "AAAを固定",
+    "AAA 고정",
+    "ล็อก AAA",
+    "Khóa AAA",
+    "Bloquear AAA"
+  ],
+  "這個風格的明度範圍無法讓目前的對比配對達到 {0}，暫不可用": [
+    "This style's lightness range can't bring the current contrast pair to {0}, so it's unavailable",
+    "このスタイルの明度範囲では、現在のコントラストペアを{0}にできないため使用できません",
+    "이 스타일의 명도 범위로는 현재 대비 쌍을 {0}에 도달시킬 수 없어 사용할 수 없습니다",
+    "ช่วงความสว่างของสไตล์นี้ไม่สามารถทำให้คู่สีที่เลือกถึงระดับ {0} ได้ จึงใช้งานไม่ได้ตอนนี้",
+    "Phạm vi độ sáng của phong cách này không thể đưa cặp tương phản hiện tại đạt {0}, nên tạm không dùng được",
+    "El rango de luminosidad de este estilo no puede llevar el par de contraste actual a {0}, por lo que no está disponible"
+  ],
+  " · 已鎖定 {0}": [
+    " · Locked {0}",
+    " ・{0}に固定中",
+    " · {0} 고정됨",
+    " · ล็อก {0} แล้ว",
+    " · Đã khóa {0}",
+    " · Bloqueado en {0}"
+  ],
+  "圖片提取模式一律保留照片原色，對比鎖定僅影響憑空生成": [
+    "Image extraction always keeps the photo's true colors; contrast lock only affects scratch generation",
+    "画像抽出モードでは常に写真本来の色を保持します。コントラスト固定は憑空生成にのみ影響します",
+    "이미지 추출 모드는 항상 사진 본래의 색을 유지하며, 대비 고정은 무에서 생성 모드에만 영향을 줍니다",
+    "โหมดดึงสีจากภาพจะคงสีต้นฉบับของภาพเสมอ การล็อกค่าความต่างสีมีผลเฉพาะโหมดสร้างจากศูนย์เท่านั้น",
+    "Chế độ trích màu từ ảnh luôn giữ màu gốc của ảnh; khóa tương phản chỉ ảnh hưởng đến chế độ tạo từ đầu",
+    "El modo de extracción de imagen siempre conserva los colores reales de la foto; el bloqueo de contraste solo afecta a la generación desde cero"
+  ],
   "前景": [
     "Foreground",
     "前景",

@@ -4,6 +4,8 @@ const AccessibilityPanel=(()=>{
   let mode='auto'; // 'auto' | 'manual'
   let fgIndex=0,bgIndex=1;
   let fgBtn,bgBtn,fgMenu,bgMenu;
+  let lockLevel='none'; // 'none' | 'AA' | 'AAA'
+  let onLockChange=null;
 
   function init() {
     fgBtn=document.getElementById('contrast-foreground');
@@ -27,6 +29,39 @@ const AccessibilityPanel=(()=>{
         render();
       });
     });
+
+    document.querySelectorAll('input[name="contrast-lock"]').forEach(radio=>{
+      radio.addEventListener('change',e=>{
+        if(!e.target.checked) return;
+        lockLevel=e.target.value;
+        document.querySelectorAll('input[name="contrast-lock"]').forEach(r=>{
+          r.closest('.chip')?.classList.toggle('active',r===e.target);
+        });
+        onLockChange?.(lockLevel);
+      });
+    });
+  }
+
+  /** 註冊「鎖定等級變更」回呼，讓 app.js 在使用者切換鎖定時重新生成／套用色票。 */
+  function setLockChangeHandler(fn) { onLockChange=fn; }
+
+  function getLockLevel() { return lockLevel; }
+
+  /**
+   * 依目前色票挑出「自動配對規則」會選中的兩個槽位索引（色差最大的兩色，較深者為前景）。
+   * 供 app.js 在鎖定對比等級時，判斷／調整這兩槽以達到門檻，維持跟面板實際顯示一致的配對規則。
+   */
+  function pickAutoPairIndexes(colors) {
+    if(!colors || colors.length<2) return null;
+    let best=-1,fg=0,bg=1;
+    for(let i=0;i<colors.length;i++) {
+      for(let j=i+1;j<colors.length;j++) {
+        const d=ColorMath.deltaE76(colors[i],colors[j]);
+        if(d>best) { best=d; fg=i; bg=j; }
+      }
+    }
+    if(ColorConvert.hexToHsl(colors[fg]).l>ColorConvert.hexToHsl(colors[bg]).l) [fg,bg]=[bg,fg];
+    return {fgIndex:fg,bgIndex:bg};
   }
 
   function toggleMenu(menu,btn) {
@@ -111,8 +146,9 @@ const AccessibilityPanel=(()=>{
     const fg=palette[fgIndex],bg=palette[bgIndex];
     const report=ColorConvert.contrastReport(bg,fg);
     preview.style.color=fg;preview.style.background=bg;
-    output.textContent=`${report.ratio.toFixed(2)}:1 · ${report.grade}（一般文字）`;
+    const lockNote=mode==='auto' && lockLevel!=='none' ? ` · 已鎖定 ${lockLevel}` : '';
+    output.textContent=`${report.ratio.toFixed(2)}:1 · ${report.grade}（一般文字）${lockNote}`;
   }
-  return {init,update};
+  return {init,update,setLockChangeHandler,getLockLevel,pickAutoPairIndexes};
 })();
 window.AccessibilityPanel=AccessibilityPanel;

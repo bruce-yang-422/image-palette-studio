@@ -14,7 +14,7 @@ A browser-based palette tool built with vanilla HTML, CSS, and JavaScript for im
 - 原圖編號錨點、滑鼠／觸控拖曳即時取色、放大鏡、平均取樣與螢幕滴管 / Numbered image sample pins, live mouse/touch sampling, loupe, averaging, and screen eyedropper.
 - 淺色／暗色／跟隨系統主題，圖示式滑動 Pill 切換並記憶偏好 / Light, dark, and system theme icons with a sliding-pill switch and saved preference.
 - 七款版型縮圖畫廊、可調色票佔比與引線標籤編輯，以及色盲模擬 / Seven-preset layout gallery with live thumbnails, adjustable swatch ratio, callout label editing, and color blindness simulation.
-- 文字對比檢測（WCAG 對比值與等級）/ Text contrast checker with WCAG ratio and grade.
+- 文字對比檢測（WCAG 對比值與等級），憑空生成模式可鎖定 AA／AAA 等級，自動微調明度並停用無法達標的風格 / Text contrast checker with WCAG ratio and grade; scratch mode can lock an AA/AAA contrast level, auto-adjusting lightness and disabling styles that can't reach it.
 - PNG／JPG（1×／2×／4×）、完整 SVG 合成、ASE、ACO、JSON、CSS、Tailwind v3／v4 匯出，以及 CSS 漸層生成 / High-resolution raster, editable SVG composition, Adobe swatches, tokens and code exports.
 - 十種 Oklch 風格與 sRGB 色域映射、可選的 60-30-10 配色角色／面積配置 / Oklch styles, hue-preserving sRGB gamut mapping and optional 60-30-10 color roles.
 - 原圖局部邊緣吸附開關；方向鍵維持逐像素取色 / Optional edge snapping with precise keyboard sampling.

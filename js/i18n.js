@@ -60,7 +60,7 @@ window.I18n = (() => {
   };
   const escape = s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   const templates = Object.keys(messages).filter(key=>key.includes('{0}')).sort((a,b)=>b.length-a.length).map(key=>({key,
-    regex:new RegExp('^'+key.split(/(\{\d+\})/).map(part=>/^\{\d+\}$/.test(part)?(['已載入：{0}','不支援的檔案類型：{0}'].includes(key)?'(.+?)':'([0-9.]+)'):escape(part)).join('')+'$')}));
+    regex:new RegExp('^'+key.split(/(\{\d+\})/).map(part=>/^\{\d+\}$/.test(part)?(['已載入：{0}','不支援的檔案類型：{0}','這個風格的明度範圍無法讓目前的對比配對達到 {0}，暫不可用',' · 已鎖定 {0}'].includes(key)?'(.+?)':'([0-9.]+)'):escape(part)).join('')+'$')}));
   const entries = [...new Set([...Object.keys(messages),...Object.keys(aliases)])].filter(key=>!key.includes('{0}')).sort((a,b)=>b.length-a.length);
   const pattern = new RegExp(entries.map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
   function t(source) {

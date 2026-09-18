@@ -628,6 +628,16 @@ body::after {
   box-shadow: 0 2px 8px rgba(101,119,212,0.4);
 }
 
+.chip.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.chip.is-disabled:hover span {
+  color: var(--clr-text-muted);
+  border-color: var(--clr-border);
+}
+
 /* ----------------------------------------------------------------
    10. HARMONY SUB OPTIONS & SELECT
    ---------------------------------------------------------------- */

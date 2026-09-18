@@ -75,6 +75,7 @@ const AppState = {
 
     // 風格
     stylePreset:  'none',
+    contrastLock: 'none', // 'none' | 'AA' | 'AAA'：鎖定後，自動挑選的對比配對兩色會強制達標
 
     // 渲染
     gap:          4,
@@ -155,6 +156,10 @@ function initComponents() {
   ColorblindSim.init();
   GradientGen.init();
   AccessibilityPanel.init();
+  AccessibilityPanel.setLockChangeHandler(level => {
+    AppState.options.contrastLock = level;
+    if (AppState.options.genSource === 'scratch' && AppState.palette.length) applyStyleAndRedraw();
+  });
   document.getElementById('role-distribution').addEventListener('change', event => {
     AppState.options.roleDistribution = event.target.checked;
     applyStyleAndRedraw();
@@ -928,13 +933,38 @@ function composePalette(basePalette, preserveLocked = true) {
     ? StyleEngine.projectPalette(basePalette, stylePreset, lockedHexes) : [...basePalette];
   if (genSource === 'scratch' && AppState.options.roleDistribution) projected = StyleEngine.assignRoles(projected,stylePreset);
   let anchorIndex = 0;
-  return projected.map((hex, i) => {
+  const result = projected.map((hex, i) => {
     if (preserveLocked && AppState.locked[i] && AppState.palette[i]) return AppState.palette[i];
     if (genSource === 'scratch' && anchorIndex < AppState.anchors.length) {
       return AppState.anchors[anchorIndex++];
     }
     return ColorConvert.parseColor(hex) ?? '#808080';
   });
+  if (genSource === 'scratch' && AppState.options.contrastLock !== 'none') {
+    const fixed = result.map((_, i) => (preserveLocked && AppState.locked[i]) || i < AppState.anchors.length);
+    return enforceContrastLock(result, fixed, stylePreset, AppState.options.contrastLock);
+  }
+  return result;
+}
+
+/**
+ * 鎖定對比等級時，找出「自動配對規則」會選中的兩槽，若對比不足就在非固定（非鎖定／非錨點）
+ * 的那一槽沿明度軸微調至達標；兩槽都固定則無法調整，交由 updateStyleAvailability() 的
+ * 風格相容性檢查事先擋下（灰顯該風格），這裡直接維持原色。
+ */
+function enforceContrastLock(palette, fixed, stylePreset, level) {
+  const target = level === 'AAA' ? 7 : 4.5;
+  const pair = AccessibilityPanel.pickAutoPairIndexes(palette);
+  if (!pair) return palette;
+  const { fgIndex, bgIndex } = pair;
+  if (ColorConvert.contrastRatio(palette[fgIndex], palette[bgIndex]) >= target) return palette;
+  const next = [...palette];
+  if (!fixed[bgIndex]) {
+    next[bgIndex] = StyleEngine.adjustLightnessForContrast(palette[bgIndex], palette[fgIndex], target, stylePreset).hex;
+  } else if (!fixed[fgIndex]) {
+    next[fgIndex] = StyleEngine.adjustLightnessForContrast(palette[fgIndex], palette[bgIndex], target, stylePreset).hex;
+  }
+  return next;
 }
 
 // ─────────────────────────────────────────────
@@ -991,6 +1021,17 @@ function updateStyleSectionVisibility() {
   if ($styleDivider) $styleDivider.hidden = shouldHide;
 }
 
+/** 對比鎖定只影響「憑空生成」的色票計算，圖片提取模式一律保留照片原色，因此鎖定控制在圖片模式停用。 */
+function updateContrastLockAvailability() {
+  const isImage = AppState.options.genSource === 'image';
+  document.querySelectorAll('input[name="contrast-lock"]').forEach(radio => {
+    radio.disabled = isImage;
+    radio.closest('.chip')?.classList.toggle('is-disabled', isImage);
+  });
+  const box = document.getElementById('contrast-lock-controls');
+  if (box) box.title = isImage ? '圖片提取模式一律保留照片原色，對比鎖定僅影響憑空生成' : '';
+}
+
 const styleChipOriginalTitles = new WeakMap();
 
 /**
@@ -1004,17 +1045,30 @@ function updateStyleAvailability() {
     return;
   }
   const fixedHexes = [...AppState.anchors, ...AppState.palette.filter((_, i) => AppState.locked[i])];
+  const contrastLock = AppState.options.contrastLock;
+  const pair = contrastLock !== 'none' && AppState.palette.length
+    ? AccessibilityPanel.pickAutoPairIndexes(AppState.palette) : null;
+  const pairFixed = pair && {
+    a: AppState.locked[pair.fgIndex] || pair.fgIndex < AppState.anchors.length,
+    b: AppState.locked[pair.bgIndex] || pair.bgIndex < AppState.anchors.length,
+  };
   let currentDisallowed = false;
   document.querySelectorAll('.style-chip[data-style]').forEach(chip => {
     const input = chip.querySelector('input[name="style-preset"]');
     if (!input) return;
     if (!styleChipOriginalTitles.has(chip)) styleChipOriginalTitles.set(chip, window.I18n?.source(chip,'title') ?? chip.title);
-    const disallowed = !StyleEngine.isCompatibleWithFixedColors(chip.dataset.style, fixedHexes);
+    let disallowed = !StyleEngine.isCompatibleWithFixedColors(chip.dataset.style, fixedHexes);
+    let reason = '目前的錨點色／鎖定色跟這個風格差太多，暫不可用';
+    if (!disallowed && pair) {
+      const reachable = StyleEngine.canReachContrastLock(
+        chip.dataset.style, AppState.palette[pair.fgIndex], AppState.palette[pair.bgIndex],
+        contrastLock, pairFixed.a, pairFixed.b
+      );
+      if (!reachable) { disallowed = true; reason = `這個風格的明度範圍無法讓目前的對比配對達到 ${contrastLock}，暫不可用`; }
+    }
     input.disabled = disallowed;
     chip.classList.toggle('is-disabled', disallowed);
-    chip.title = disallowed
-      ? '目前的錨點色／鎖定色跟這個風格差太多，暫不可用'
-      : styleChipOriginalTitles.get(chip);
+    chip.title = disallowed ? reason : styleChipOriginalTitles.get(chip);
     if (disallowed && input.checked) currentDisallowed = true;
   });
   if (currentDisallowed) {
@@ -1067,6 +1121,7 @@ function carryLockedColorsToScratch() {
 function updateModeDescription() {
   updateStyleSectionVisibility();
   updateStyleAvailability();
+  updateContrastLockAvailability();
   if (!$genModeDesc) return;
   const { genSource, genAlgo } = AppState.options;
   let key;

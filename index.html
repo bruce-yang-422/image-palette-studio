@@ -624,6 +624,21 @@
           </label>
         </div>
 
+        <div id="contrast-lock-controls" class="chip-group chip-group-sm" role="radiogroup" aria-label="鎖定對比等級">
+          <label class="chip active" title="不限制對比，色票可自由套用任何風格">
+            <input type="radio" name="contrast-lock" value="none" checked aria-label="不鎖定" />
+            <span>不鎖定</span>
+          </label>
+          <label class="chip" title="生成與換風格時，自動挑選的兩色會保持在 AA 以上；達不到的風格會禁用">
+            <input type="radio" name="contrast-lock" value="AA" aria-label="鎖定 AA" />
+            <span>鎖定 AA</span>
+          </label>
+          <label class="chip" title="生成與換風格時，自動挑選的兩色會保持在 AAA 以上；達不到的風格會禁用">
+            <input type="radio" name="contrast-lock" value="AAA" aria-label="鎖定 AAA" />
+            <span>鎖定 AAA</span>
+          </label>
+        </div>
+
         <div class="contrast-controls">
           <div class="swatch-select-field">
             <span class="sub-label">前景</span>
