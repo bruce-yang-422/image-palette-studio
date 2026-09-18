@@ -20,7 +20,7 @@ test('light/dark/system themes persist and react to OS changes without changing 
   const palette = await page.evaluate(()=>AppState.palette);
   await choose(page, 'theme-pref', 'dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-  expect(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(11, 12, 16)');
+  expect(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(36, 41, 53)');
   expect(await page.evaluate(()=>AppState.palette)).toEqual(palette);
   await page.reload();
   await expect(page.locator('input[name="theme-pref"][value="dark"]')).toBeChecked();

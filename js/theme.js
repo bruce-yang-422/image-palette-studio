@@ -20,7 +20,7 @@
     const theme = preference === 'system' ? (media.matches ? 'dark' : 'light') : preference;
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#14141f' : '#f5f6fb');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#2c3240' : '#f5f6fb');
     const group = document.getElementById('theme-switch');
     if (!group) return;
     group.querySelectorAll('.theme-switch-option').forEach(option => {

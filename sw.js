@@ -1,7 +1,7 @@
 'use strict';
 
 // The deployment script replaces this version with a hash of all app assets.
-const VERSION = '2026-09-18-4';
+const VERSION = '2026-09-18-5';
 const SCOPE = new URL('./', self.location.href);
 const PREFIX = `image-palette-studio:${SCOPE.pathname}:`;
 const CACHE = PREFIX + VERSION;
